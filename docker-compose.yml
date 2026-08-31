@@ -1,0 +1,26 @@
+services:
+  backend:
+    build:
+      context: ./backend   # scoped build context — shared fixtures (if any
+                             # get added later) need a bind mount, not a COPY
+                             # into the image; same gotcha as the capstone
+    ports:
+      - "3002:3002"
+    environment:
+      RACKPLANNER_PROXY_PORT: 3002
+      RACKPLANNER_DB_PATH: /data/rackplanner.db
+    volumes:
+      - rackplanner-data:/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  rackplanner-data:

@@ -1,17 +1,14 @@
 // Shared domain types — backend is the source of truth for these shapes.
 //
-// Correction (02-Frontend-Backend-Type-Alignment.md): this comment used
-// to claim the frontend imports this file directly via a workspace
-// reference. That was never actually true, and it's not the fix that was
-// applied — a real cross-package import here would mean the frontend's
-// Docker build needs to see backend/src at image-build time, but each
-// service's Docker build context is scoped to its own folder (the same
-// constraint the capstone hit with shared fixtures). Instead:
-// `frontend/src/lib/api.ts` declares its own matching camelCase `Device`
-// interface, and the backend's Express routes (routes/devices.ts, via
-// db/devices.ts) now serialize responses in this exact camelCase shape —
-// so the wire contract and both type declarations agree, without a
-// build-time dependency between the two packages.
+// frontend/src/lib/api.ts declares its own matching camelCase `Device`
+// interface rather than importing this file directly — a real
+// cross-package import would mean the frontend's Docker build needs to
+// see backend/src at image-build time, but each service's Docker build
+// context is scoped to its own folder, so that isn't viable. Instead,
+// the backend's Express routes (routes/devices.ts, via db/devices.ts)
+// serialize responses in this exact camelCase shape, so the wire
+// contract and both type declarations agree without a build-time
+// dependency between the two packages.
 
 export type DeviceSource = "curated" | "community";
 export type DeviceStatus = "approved" | "pending";
@@ -69,9 +66,8 @@ export interface ValidationError {
 export interface PowerBudget {
   totalWattage: number;
   deviceCount: number;
-  // Runtime estimate is intentionally NOT modeled here yet — this waits on
-  // the NUT discharge curve data (01-NUT-Discharge-Curve-Measurement.md).
-  // A placeholder linear estimate would misrepresent the "measured, not
-  // invented" framing the whole project is built around.
+  // Runtime estimate is intentionally NOT modeled here yet — this waits
+  // on real observed UPS discharge curve data. A placeholder linear
+  // estimate would misrepresent measured data as something it isn't.
   runtimeEstimateAvailable: false;
 }

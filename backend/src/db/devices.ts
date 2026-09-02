@@ -5,9 +5,8 @@ import type { Device } from "../types/index.js";
 // (camelCase). Both routes/devices.ts and validate.ts go through this now
 // instead of each doing their own row -> Device mapping — validate.ts
 // used to have its own private getDevice() that duplicated this exact
-// logic; routes/devices.ts used to skip the mapping entirely and return
-// raw rows straight off the DB, which was the actual bug (02-Frontend-
-// Backend-Type-Alignment). One mapping, two real consumers.
+// logic, and routes/devices.ts used to skip the mapping entirely and
+// return raw rows straight off the DB. One mapping, two real consumers.
 function rowToDevice(row: any): Device {
   return {
     id: row.id,
@@ -30,9 +29,8 @@ export function getDevice(deviceId: string): Device | undefined {
 }
 
 // v0.5: only approved/curated devices are ever returned — source/status
-// filtering is unused (per 00-RPP-Overview.md decision #3) but the
-// columns already exist so v2's community-submission moderation queue
-// doesn't need a migration.
+// filtering is unused for now, but the columns already exist so v2's
+// community-submission moderation queue doesn't need a migration.
 export function getAllApprovedDevices(): Device[] {
   const rows = db
     .prepare(`SELECT * FROM devices WHERE status = 'approved' ORDER BY name`)

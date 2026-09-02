@@ -11,7 +11,7 @@ import request from "supertest";
 const TEST_DB_PATH = path.join(os.tmpdir(), `rackplanner-route-test-${Date.now()}-${process.pid}.db`);
 process.env.RACKPLANNER_DB_PATH = TEST_DB_PATH;
 
-const { migrate } = await import("../db/index.js");
+const { db, migrate } = await import("../db/index.js");
 const { seed } = await import("../db/seed.js");
 const { createApp } = await import("../app.js");
 
@@ -31,6 +31,11 @@ describe("GET /api/devices — real request through the actual Express app", () 
   });
 
   afterAll(() => {
+    // Same reasoning as db/devices.test.ts's afterAll — close the open
+    // better-sqlite3 handle before trying to delete the file, or the
+    // delete fails with EPERM on Windows (works fine on Linux/macOS
+    // without this, which is why this was missed on first pass).
+    db.close();
     fs.rmSync(TEST_DB_PATH, { force: true });
     fs.rmSync(`${TEST_DB_PATH}-wal`, { force: true });
     fs.rmSync(`${TEST_DB_PATH}-shm`, { force: true });

@@ -7,8 +7,7 @@ export const devicesRouter = Router();
 // db/devices.ts mapping — previously these handlers shipped raw SQLite
 // rows (snake_case) straight to the client, which is what forced
 // frontend/src/lib/api.ts to hand-declare its own separate snake_case
-// Device interface. Fixed here per 02-Frontend-Backend-Type-Alignment.md
-// decision #1(b): the wire format now matches the shared type, so no
+// Device interface. The wire format now matches the shared type, so no
 // client-side mapping step is needed at all.
 devicesRouter.get("/", (_req, res) => {
   res.json(getAllApprovedDevices());

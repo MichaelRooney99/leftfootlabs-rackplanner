@@ -12,19 +12,24 @@ import os from "node:os";
 const TEST_DB_PATH = path.join(os.tmpdir(), `rackplanner-test-${Date.now()}-${process.pid}.db`);
 process.env.RACKPLANNER_DB_PATH = TEST_DB_PATH;
 
-const { migrate } = await import("./index.js");
+const { db, migrate } = await import("./index.js");
 const { seed } = await import("./seed.js");
 const { getAllApprovedDevices, getDevice } = await import("./devices.js");
 
-describe("device row -> Device shape (02-Frontend-Backend-Type-Alignment)", () => {
+describe("device row -> Device shape", () => {
   beforeAll(() => {
     migrate();
     seed();
   });
 
   afterAll(() => {
-    // Real throwaway file per test run — clean up so /tmp doesn't
-    // accumulate one of these every time this suite runs.
+    // better-sqlite3 holds the file open until explicitly closed. On
+    // Linux this doesn't block deleting the file out from under it, but
+    // Windows locks open file handles and refuses the delete (EPERM)
+    // until something closes them — close() first so the rmSync calls
+    // below actually succeed on every platform, not just the ones that
+    // happen to allow deleting open files.
+    db.close();
     fs.rmSync(TEST_DB_PATH, { force: true });
     fs.rmSync(`${TEST_DB_PATH}-wal`, { force: true });
     fs.rmSync(`${TEST_DB_PATH}-shm`, { force: true });

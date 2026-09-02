@@ -1,22 +1,5 @@
-import { db } from "./index.js";
-import type { Device, PlacedDevice, ValidationError, ValidationResult } from "../types/index.js";
-
-function getDevice(deviceId: string): Device | undefined {
-  const row = db.prepare(`SELECT * FROM devices WHERE id = ?`).get(deviceId) as any;
-  if (!row) return undefined;
-  return {
-    id: row.id,
-    name: row.name,
-    manufacturer: row.manufacturer,
-    uHeight: row.u_height,
-    depthMm: row.depth_mm,
-    weightKg: row.weight_kg,
-    wattage: row.wattage,
-    source: row.source,
-    status: row.status,
-    isKitItem: !!row.is_kit_item,
-  };
-}
+import { getDevice } from "./devices.js";
+import type { PlacedDevice, ValidationError, ValidationResult } from "../types/index.js";
 
 // Occupied-U tracking is the whole collision check — two devices whose
 // [startU, startU + uHeight) ranges overlap is a collision, full stop.

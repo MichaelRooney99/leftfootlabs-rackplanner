@@ -1,23 +1,24 @@
 import { Router } from "express";
-import { db } from "../db/index.js";
+import { getAllApprovedDevices, getDevice } from "../db/devices.js";
 
 export const devicesRouter = Router();
 
-// v0.5: only approved/curated devices are ever returned — source/status
-// filtering is unused (per decision #3) but the columns already exist so
-// v2's community-submission moderation queue doesn't need a migration.
+// Both routes now return the shared Device shape (camelCase) via the
+// db/devices.ts mapping — previously these handlers shipped raw SQLite
+// rows (snake_case) straight to the client, which is what forced
+// frontend/src/lib/api.ts to hand-declare its own separate snake_case
+// Device interface. Fixed here per 02-Frontend-Backend-Type-Alignment.md
+// decision #1(b): the wire format now matches the shared type, so no
+// client-side mapping step is needed at all.
 devicesRouter.get("/", (_req, res) => {
-  const rows = db
-    .prepare(`SELECT * FROM devices WHERE status = 'approved' ORDER BY name`)
-    .all();
-  res.json(rows);
+  res.json(getAllApprovedDevices());
 });
 
 devicesRouter.get("/:id", (req, res) => {
-  const row = db.prepare(`SELECT * FROM devices WHERE id = ?`).get(req.params.id);
-  if (!row) {
+  const device = getDevice(req.params.id);
+  if (!device) {
     res.status(404).json({ error: "Device not found" });
     return;
   }
-  res.json(row);
+  res.json(device);
 });

@@ -1,7 +1,17 @@
-// Shared domain types. Backend is the source of truth for these shapes;
-// frontend imports the same file via a workspace reference (see root
-// package.json) rather than hand-duplicating types across the boundary —
-// same reasoning as the capstone's types.ts-before-adapter convention.
+// Shared domain types — backend is the source of truth for these shapes.
+//
+// Correction (02-Frontend-Backend-Type-Alignment.md): this comment used
+// to claim the frontend imports this file directly via a workspace
+// reference. That was never actually true, and it's not the fix that was
+// applied — a real cross-package import here would mean the frontend's
+// Docker build needs to see backend/src at image-build time, but each
+// service's Docker build context is scoped to its own folder (the same
+// constraint the capstone hit with shared fixtures). Instead:
+// `frontend/src/lib/api.ts` declares its own matching camelCase `Device`
+// interface, and the backend's Express routes (routes/devices.ts, via
+// db/devices.ts) now serialize responses in this exact camelCase shape —
+// so the wire contract and both type declarations agree, without a
+// build-time dependency between the two packages.
 
 export type DeviceSource = "curated" | "community";
 export type DeviceStatus = "approved" | "pending";

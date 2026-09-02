@@ -21,8 +21,8 @@ export function DeviceLibrary() {
       <ul>
         {devices.map((d) => (
           <li key={d.id}>
-            {d.name} — {d.u_height}U, {d.wattage}W
-            {d.is_kit_item ? " (leftfootLabs kit)" : ""}
+            {d.name} — {d.uHeight}U, {d.wattage}W
+            {d.isKitItem ? " (leftfootLabs kit)" : ""}
           </li>
         ))}
       </ul>

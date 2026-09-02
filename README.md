@@ -12,7 +12,7 @@ the actual drag/place UI, which is next.
 
 - **Backend:** Express + TypeScript, SQLite (`better-sqlite3`)
 - **Frontend:** React + TypeScript + Vite
-- Same pattern as the capstone status page (decision #6) — deliberate
+- Same pattern as the capstone status page — deliberate
   repetition, not a second stack to learn in parallel.
 
 ## What's here vs. not yet

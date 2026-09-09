@@ -63,11 +63,33 @@ export interface ValidationError {
   message: string;
 }
 
+// Runtime estimate confidence — reflects how the number was actually
+// produced, not just whether one exists:
+//   "measured"              — load matches one of the three real tested
+//                              levels (15%, ~25%, 47%) almost exactly
+//   "interpolated"          — load falls between two real tested levels
+//   "extrapolated-by-load"  — load falls outside the 15-47% tested range,
+//                              using the nearest real curve directly
+export type RuntimeEstimateConfidence = "measured" | "interpolated" | "extrapolated-by-load";
+
 export interface PowerBudget {
   totalWattage: number;
   deviceCount: number;
-  // Runtime estimate is intentionally NOT modeled here yet — this waits
-  // on real observed UPS discharge curve data. A placeholder linear
-  // estimate would misrepresent measured data as something it isn't.
-  runtimeEstimateAvailable: false;
+  // Built from three real discharge tests run against the live UPS
+  // (September 2026) rather than a spec-sheet linear estimate — see the
+  // discharge curve data and estimator module for the real numbers this
+  // is built from. False only for a layout with no real wattage draw
+  // (empty, or all-zero-wattage devices), where a runtime estimate isn't
+  // a meaningful question to ask in the first place.
+  runtimeEstimateAvailable: boolean;
+  // Seconds from full charge (100%) down to the lowest charge% actually
+  // observed during testing at this (possibly interpolated) load — not a
+  // guess at full depletion. Undefined when runtimeEstimateAvailable is
+  // false.
+  estimatedRuntimeSeconds?: number;
+  // What charge% that estimate actually stops at — varies by load, since
+  // the three real tests didn't all run down to the same floor (Level 3
+  // in particular only reached 68% before being stopped deliberately).
+  runtimeEstimateFloorChargePct?: number;
+  runtimeEstimateConfidence?: RuntimeEstimateConfidence;
 }

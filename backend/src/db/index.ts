@@ -35,12 +35,34 @@ export function migrate(): void {
       is_kit_item   INTEGER NOT NULL DEFAULT 0
     );
 
-    CREATE TABLE IF NOT EXISTS kit_compatibility (
-      device_id   TEXT NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
-      kit_sku     TEXT NOT NULL,
-      fits        INTEGER NOT NULL,
-      notes       TEXT,
-      PRIMARY KEY (device_id, kit_sku)
+    -- Replaces kit_compatibility (dropped below): capacity now lives
+    -- directly on the shelf itself instead of a per-device-per-kit pairing.
+    -- width_mm is the number checked against rack_profiles — for a
+    -- one-piece shelf that's the whole part; for a two-piece design
+    -- (separate tray + faceplate) it's specifically the faceplate's
+    -- width, since the faceplate is what actually clips into the rails.
+    CREATE TABLE IF NOT EXISTS shelves (
+      id            TEXT PRIMARY KEY,
+      name          TEXT NOT NULL,
+      manufacturer  TEXT,
+      width_mm      REAL NOT NULL,
+      u_height      REAL NOT NULL,
+      max_depth_mm  REAL NOT NULL,
+      max_weight_kg REAL,          -- nullable: unmeasured for several real seed rows, flagged not guessed
+      source        TEXT NOT NULL DEFAULT 'curated' CHECK (source IN ('curated', 'community')),
+      status        TEXT NOT NULL DEFAULT 'approved' CHECK (status IN ('approved', 'pending'))
+    );
+
+    -- Single-row table: the universal 10-inch rack standard. A table
+    -- rather than a hardcoded constant, since a second rack-width class
+    -- (e.g. 19-inch) is a real possibility down the line and would be a
+    -- second row here, not a second copy of constants scattered through
+    -- the codebase — even though only the 10-inch profile exists today.
+    CREATE TABLE IF NOT EXISTS rack_profiles (
+      id            INTEGER PRIMARY KEY CHECK (id = 1),
+      width_mm      REAL NOT NULL,
+      tolerance_mm  REAL NOT NULL,
+      u_height_mm   REAL NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS layouts (
@@ -53,5 +75,11 @@ export function migrate(): void {
                                         -- into individual placements needed)
       created_at       TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    -- Real drop, not just "stop creating it" — an existing local dev DB
+    -- (data/rackplanner.db) may already have this table from an earlier
+    -- schema version, and IF NOT EXISTS above would silently leave it
+    -- sitting there unused.
+    DROP TABLE IF EXISTS kit_compatibility;
   `);
 }

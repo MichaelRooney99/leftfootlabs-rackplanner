@@ -59,29 +59,18 @@ export interface RackProfile {
   uHeightMm: number;
 }
 
-// A device no longer carries its own rack position — it's nested under
-// whichever shelf it's placed on, and inherits that shelf's position.
-// xPositionMm is unused by anything in this file today: it's added now,
-// optional, ahead of a future feature that would need to know exactly
-// where on a shelf's face a device sits (for generating a matching
-// faceplate cutout) — adding it now avoids a second breaking change to
-// this same type later, for the cost of one unused optional field today.
-export interface PlacedDeviceOnShelf {
+export interface PlacedDevice {
   deviceId: string;
-  xPositionMm?: number;
-}
-
-export interface PlacedShelf {
-  shelfId: string;
-  startU: number;          // bottom rack unit position, 1-indexed
-  placedDevices: PlacedDeviceOnShelf[];
+  startU: number;         // bottom rack unit position, 1-indexed
+  // uHeight, depthMm, weightKg, wattage are looked up from Device at
+  // render/validation time, not duplicated here — single source of truth.
 }
 
 export interface Layout {
   id: string;             // snapshot link id (nanoid or similar)
   name: string;
   rackSizeU: number;      // total rack units available (5, 8, 10 for now)
-  placedShelves: PlacedShelf[];
+  placedDevices: PlacedDevice[];
   createdAt: string;       // ISO timestamp
 }
 

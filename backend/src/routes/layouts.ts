@@ -3,23 +3,23 @@ import { randomUUID } from "node:crypto";
 import { db } from "../db/index.js";
 import { validateLayout } from "../db/validate.js";
 import { estimateRuntime } from "../lib/runtimeEstimator.js";
-import type { Layout, PlacedDevice, PowerBudget } from "../types/index.js";
+import type { Layout, PlacedShelf, PowerBudget } from "../types/index.js";
 
 export const layoutsRouter = Router();
 
 layoutsRouter.post("/", (req, res) => {
-  const { name, rackSizeU, placedDevices } = req.body as {
+  const { name, rackSizeU, placedShelves } = req.body as {
     name: string;
     rackSizeU: number;
-    placedDevices: PlacedDevice[];
+    placedShelves: PlacedShelf[];
   };
 
-  if (!name || !rackSizeU || !Array.isArray(placedDevices)) {
-    res.status(400).json({ error: "name, rackSizeU, and placedDevices are required" });
+  if (!name || !rackSizeU || !Array.isArray(placedShelves)) {
+    res.status(400).json({ error: "name, rackSizeU, and placedShelves are required" });
     return;
   }
 
-  const validation = validateLayout(rackSizeU, placedDevices);
+  const validation = validateLayout(rackSizeU, placedShelves);
   if (!validation.valid) {
     res.status(422).json({ error: "Layout failed validation", validation });
     return;
@@ -27,8 +27,8 @@ layoutsRouter.post("/", (req, res) => {
 
   const id = randomUUID();
   db.prepare(
-    `INSERT INTO layouts (id, name, rack_size_u, placed_devices) VALUES (?, ?, ?, ?)`
-  ).run(id, name, rackSizeU, JSON.stringify(placedDevices));
+    `INSERT INTO layouts (id, name, rack_size_u, placed_shelves) VALUES (?, ?, ?, ?)`
+  ).run(id, name, rackSizeU, JSON.stringify(placedShelves));
 
   res.status(201).json({ id });
 });
@@ -44,7 +44,7 @@ layoutsRouter.get("/:id", (req, res) => {
     id: row.id,
     name: row.name,
     rackSizeU: row.rack_size_u,
-    placedDevices: JSON.parse(row.placed_devices),
+    placedShelves: JSON.parse(row.placed_shelves),
     createdAt: row.created_at,
   };
 
@@ -52,22 +52,20 @@ layoutsRouter.get("/:id", (req, res) => {
 });
 
 layoutsRouter.get("/:id/power", (req, res) => {
-  const row = db.prepare(`SELECT placed_devices FROM layouts WHERE id = ?`).get(req.params.id) as any;
+  const row = db.prepare(`SELECT placed_shelves FROM layouts WHERE id = ?`).get(req.params.id) as any;
   if (!row) {
     res.status(404).json({ error: "Layout not found" });
     return;
   }
 
-  const placedDevices: PlacedDevice[] = JSON.parse(row.placed_devices);
+  const placedShelves: PlacedShelf[] = JSON.parse(row.placed_shelves);
+  // Flatten every device out of every shelf before summing — the same
+  // repeated-device wattage bug from before applies one level deeper now:
+  // fetch each UNIQUE device's wattage once, then sum per real placement
+  // across every shelf, not once per unique id.
+  const allPlacements = placedShelves.flatMap((shelf) => shelf.placedDevices);
 
-  // Fetch each UNIQUE device's wattage once, then sum per placement below —
-  // a layout can place the same device more than once (four identical mini
-  // PCs, say), and `WHERE id IN (...)` only returns one row per unique id
-  // no matter how many times that id appears in the IN list. Summing
-  // straight off that query result silently undercounts any repeated
-  // device — a real bug found while wiring up this route's power estimate,
-  // not something introduced by it.
-  const uniqueIds = [...new Set(placedDevices.map((p) => p.deviceId))];
+  const uniqueIds = [...new Set(allPlacements.map((p) => p.deviceId))];
   const placeholders = uniqueIds.map(() => "?").join(",");
   const deviceRows = uniqueIds.length
     ? (db
@@ -76,14 +74,13 @@ layoutsRouter.get("/:id/power", (req, res) => {
     : [];
   const wattageById = new Map(deviceRows.map((d) => [d.id, d.wattage]));
 
-  const totalWattage = placedDevices.reduce(
+  const totalWattage = allPlacements.reduce(
     (sum, p) => sum + (wattageById.get(p.deviceId) ?? 0),
     0
   );
-  // Total placements in the layout, not unique device types — four of the
-  // same mini PC counts as 4, matching what "how many devices are in this
-  // rack" actually means to someone looking at the layout.
-  const deviceCount = placedDevices.length;
+  // Total device placements across every shelf, not unique device types —
+  // four of the same mini PC (even split across two shelves) counts as 4.
+  const deviceCount = allPlacements.length;
 
   const budget: PowerBudget = {
     totalWattage,

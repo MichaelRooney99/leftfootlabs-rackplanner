@@ -1,0 +1,133 @@
+:root {
+  --bg: #1a1d1f;
+  --panel: #232628;
+  --border: #3a3e41;
+  --text: #e9e6df;
+  --text-dim: #9a9d9f;
+  --accent-amber: #e8a33d;
+  --accent-slate: #7597ac;
+
+  --font-ui: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+}
+
+#root {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+}
+
+a {
+  color: var(--accent-amber);
+}
+
+.page-header {
+  margin-bottom: 2.5rem;
+}
+
+.page-header h1 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  margin: 0 0 0.35rem;
+}
+
+.page-header p {
+  color: var(--text-dim);
+  margin: 0;
+  max-width: 60ch;
+}
+
+.catalog-section {
+  margin-bottom: 3rem;
+}
+
+.catalog-section h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.25rem;
+}
+
+.catalog-section .section-note {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  margin: 0 0 1rem;
+}
+
+.spec-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.spec-table th {
+  text-align: left;
+  font-weight: 500;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.spec-table th.numeric,
+.spec-table td.numeric {
+  text-align: right;
+  font-family: var(--font-mono);
+}
+
+.spec-table td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+
+.spec-table tbody tr:hover {
+  background: var(--panel);
+}
+
+.spec-table .item-name {
+  font-weight: 500;
+}
+
+.spec-table .item-manufacturer {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  display: block;
+}
+
+.spec-table .unmeasured {
+  color: var(--text-dim);
+}
+
+.kit-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  color: var(--accent-amber);
+  border: 1px solid var(--accent-amber);
+}
+
+.state-message {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  padding: 1.5rem 0.75rem;
+  border: 1px solid var(--border);
+}
+
+.state-message.error {
+  color: var(--accent-amber);
+  border-color: var(--accent-amber);
+}

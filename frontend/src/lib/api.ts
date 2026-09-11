@@ -32,3 +32,40 @@ export async function fetchDevices(): Promise<Device[]> {
   if (!res.ok) throw new Error(`Failed to fetch devices: ${res.status}`);
   return res.json();
 }
+
+// Matches backend/src/types/index.ts's Shelf shape field-for-field — same
+// deliberate-duplicate reasoning as Device above.
+export interface Shelf {
+  id: string;
+  name: string;
+  manufacturer: string | null;
+  widthMm: number;
+  uHeight: number;
+  maxDepthMm: number;
+  maxWeightKg: number | null;
+  source: "curated" | "community";
+  status: "approved" | "pending";
+}
+
+export async function fetchShelves(): Promise<Shelf[]> {
+  const res = await fetch(`${API_BASE}/shelves`);
+  if (!res.ok) throw new Error(`Failed to fetch shelves: ${res.status}`);
+  return res.json();
+}
+
+// Matches backend/src/types/index.ts's RackProfile shape field-for-field.
+// Fetched (not hardcoded) specifically so a future real-time client-side
+// validation pre-check reads the same source of truth the backend's
+// validateLayout does, rather than a second copy of 254/2/44.45 that
+// could silently drift from the real seeded value.
+export interface RackProfile {
+  widthMm: number;
+  toleranceMm: number;
+  uHeightMm: number;
+}
+
+export async function fetchRackProfile(): Promise<RackProfile> {
+  const res = await fetch(`${API_BASE}/rack-profile`);
+  if (!res.ok) throw new Error(`Failed to fetch rack profile: ${res.status}`);
+  return res.json();
+}

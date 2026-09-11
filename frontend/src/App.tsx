@@ -1,5 +1,5 @@
-import { DeviceLibrary } from "./pages/DeviceLibrary";
+import { Library } from "./pages/Library";
 
 export default function App() {
-  return <DeviceLibrary />;
+  return <Library />;
 }

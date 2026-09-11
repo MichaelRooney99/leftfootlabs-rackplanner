@@ -93,7 +93,7 @@ export interface ValidationResult {
 
 export interface ValidationError {
   deviceId: string;
-  kind: "collision" | "exceeds_rack_height" | "depth_exceeds_kit" | "weight_exceeds_kit";
+  kind: "collision" | "exceeds_rack_height" | "exceeds_rack_width" | "depth_exceeds_shelf" | "weight_exceeds_shelf";
   message: string;
 }
 

@@ -1,6 +1,6 @@
 import { db } from "./index.js";
 import type { } from "../types/index.js";
-import { Shelf, RackProfile } from "../index.js";
+import { Shelf, RackProfile } from "../types/index.js";
 
 // Same one-mapping-two-consumers reasoning as db/devices.ts's rowToDevice:
 // this is the single place raw SQLite rows (snake_case) become the shared

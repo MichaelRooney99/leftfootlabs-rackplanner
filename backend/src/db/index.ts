@@ -69,10 +69,12 @@ export function migrate(): void {
       id               TEXT PRIMARY KEY,
       name             TEXT NOT NULL,
       rack_size_u      INTEGER NOT NULL,
-      placed_devices   TEXT NOT NULL,  -- JSON array of PlacedDevice; not worth
-                                        -- a join table at this scale (single
-                                        -- owner per layout, no cross-querying
-                                        -- into individual placements needed)
+      placed_shelves   TEXT NOT NULL,  -- JSON array of PlacedShelf, each
+                                        -- with its own nested devices; not
+                                        -- worth a join table at this scale
+                                        -- (single owner per layout, no
+                                        -- cross-querying into individual
+                                        -- placements needed)
       created_at       TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -82,4 +84,16 @@ export function migrate(): void {
     -- sitting there unused.
     DROP TABLE IF EXISTS kit_compatibility;
   `);
+
+  // layouts.placed_devices -> placed_shelves: an existing local dev DB may
+  // already have this table from before shelves existed, and CREATE TABLE
+  // IF NOT EXISTS above won't touch an existing table's columns. No real
+  // layout data exists yet to worry about losing, but a real rename is
+  // still the correct move over a silent mismatch between the column name
+  // and what it actually stores now.
+  const layoutsColumns = db.prepare(`PRAGMA table_info(layouts)`).all() as { name: string }[];
+  const hasOldColumnName = layoutsColumns.some((c) => c.name === "placed_devices");
+  if (hasOldColumnName) {
+    db.exec(`ALTER TABLE layouts RENAME COLUMN placed_devices TO placed_shelves`);
+  }
 }

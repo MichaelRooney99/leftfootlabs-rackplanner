@@ -69,3 +69,17 @@ export async function fetchRackProfile(): Promise<RackProfile> {
   if (!res.ok) throw new Error(`Failed to fetch rack profile: ${res.status}`);
   return res.json();
 }
+
+// Matches backend/src/types/index.ts's shape field-for-field. This is the
+// elevation's own state shape, not just a save-time payload — a layout
+// being built client-side literally is a PlacedShelf[] under construction.
+export interface PlacedDeviceOnShelf {
+  deviceId: string;
+  xPositionMm?: number;
+}
+
+export interface PlacedShelf {
+  shelfId: string;
+  startU: number;
+  placedDevices: PlacedDeviceOnShelf[];
+}

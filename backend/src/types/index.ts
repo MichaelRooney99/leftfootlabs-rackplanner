@@ -26,28 +26,62 @@ export interface Device {
   isKitItem: boolean;     // true for leftfootLabs kit parts/accessories
 }
 
-// Links a device to the rack size(s) it's compatible with — kept separate
-// from Device itself so a future community-submitted device can be added
-// without needing kit-specific columns bolted onto every row.
-export interface KitCompatibility {
-  deviceId: string;
-  kitSku: string;        // e.g. "lfl-5u-10in"
-  fits: boolean;
-  notes: string | null;
+// A shelf sits between the rack and its devices — the thing that
+// physically clips into a 10-inch rack's rails (checked against
+// RackProfile below) and carries real depth/weight capacity for
+// whatever's placed on it. Not a variant of Device: a shelf doesn't draw
+// power or get "organized," it's what other things get organized on.
+// widthMm means different things depending on the shelf's real design:
+// for a one-piece shelf (the part that mounts and the part that holds
+// the device are the same piece), it's that whole part's width. For a
+// two-piece design (a separate internal tray plus a distinct faceplate),
+// it's specifically the faceplate's width — the faceplate is what
+// actually clips into the rails, the tray is an internal fixture that
+// doesn't need to be rack-width compliant on its own.
+export interface Shelf {
+  id: string;
+  name: string;
+  manufacturer: string | null;
+  widthMm: number;
+  uHeight: number;
+  maxDepthMm: number;
+  maxWeightKg: number | null;   // null: several real seed shelves have this unmeasured, not guessed
+  source: DeviceSource;
+  status: DeviceStatus;
 }
 
-export interface PlacedDevice {
+// The universal 10-inch rack standard — one row today, structured as a
+// table rather than a constant to future-proof multi-profile support
+// even though only 10-inch is in scope for now.
+export interface RackProfile {
+  widthMm: number;
+  toleranceMm: number;
+  uHeightMm: number;
+}
+
+// A device no longer carries its own rack position — it's nested under
+// whichever shelf it's placed on, and inherits that shelf's position.
+// xPositionMm is unused by anything in this file today: it's added now,
+// optional, ahead of a future feature that would need to know exactly
+// where on a shelf's face a device sits (for generating a matching
+// faceplate cutout) — adding it now avoids a second breaking change to
+// this same type later, for the cost of one unused optional field today.
+export interface PlacedDeviceOnShelf {
   deviceId: string;
-  startU: number;         // bottom rack unit position, 1-indexed
-  // uHeight, depthMm, weightKg, wattage are looked up from Device at
-  // render/validation time, not duplicated here — single source of truth.
+  xPositionMm?: number;
+}
+
+export interface PlacedShelf {
+  shelfId: string;
+  startU: number;          // bottom rack unit position, 1-indexed
+  placedDevices: PlacedDeviceOnShelf[];
 }
 
 export interface Layout {
   id: string;             // snapshot link id (nanoid or similar)
   name: string;
   rackSizeU: number;      // total rack units available (5, 8, 10 for now)
-  placedDevices: PlacedDevice[];
+  placedShelves: PlacedShelf[];
   createdAt: string;       // ISO timestamp
 }
 

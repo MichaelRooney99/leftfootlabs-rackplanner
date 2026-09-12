@@ -101,3 +101,48 @@ export interface ValidationResult {
   valid: boolean;
   errors: ValidationError[];
 }
+
+// Matches backend/src/types/index.ts's Layout shape field-for-field.
+export interface Layout {
+  id: string;
+  name: string;
+  rackSizeU: number;
+  placedShelves: PlacedShelf[];
+  createdAt: string;
+}
+
+// A real, typed failure for the one case that isn't just "the network
+// failed" — the server rejected the layout on its own validation, and
+// the caller needs the real ValidationResult it returned, not just a
+// generic error message. This is the "server as final authority" half
+// of the save flow: the client-side pre-check in lib/validate.ts is UX
+// only, this is what actually happens when someone clicks save anyway
+// despite a pre-check warning, or in the (should be impossible, per the
+// parity check) case the two ever disagreed.
+export class LayoutValidationError extends Error {
+  constructor(public validation: ValidationResult) {
+    super("Layout failed server-side validation");
+  }
+}
+
+export async function createLayout(name: string, rackSizeU: number, placedShelves: PlacedShelf[]): Promise<{ id: string }> {
+  const res = await fetch(`${API_BASE}/layouts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, rackSizeU, placedShelves }),
+  });
+
+  if (res.status === 422) {
+    const body = await res.json();
+    throw new LayoutValidationError(body.validation);
+  }
+  if (!res.ok) throw new Error(`Failed to save layout: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchLayout(id: string): Promise<Layout> {
+  const res = await fetch(`${API_BASE}/layouts/${id}`);
+  if (res.status === 404) throw new Error("Layout not found — the link may be wrong, or the layout may no longer exist.");
+  if (!res.ok) throw new Error(`Failed to fetch layout: ${res.status}`);
+  return res.json();
+}

@@ -1,5 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { fetchDevices, fetchRackProfile, fetchShelves, type Device, type PlacedShelf, type RackProfile, type Shelf } from "../lib/api";
+import {
+  createLayout,
+  fetchDevices,
+  fetchRackProfile,
+  fetchShelves,
+  LayoutValidationError,
+  type Device,
+  type PlacedShelf,
+  type RackProfile,
+  type Shelf,
+  type ValidationResult,
+} from "../lib/api";
 import { canPlaceAt } from "../lib/placement";
 import { validateLayoutClient } from "../lib/validate";
 
@@ -13,6 +24,16 @@ const RACK_SIZE_OPTIONS = [5, 8, 10] as const;
 // state by hand at every selection site.
 type Selection = { type: "shelf"; id: string } | { type: "device"; id: string } | null;
 
+// The real outcome of a save attempt, not just a boolean — "saved" needs
+// the real link, and "rejected" needs the real server-side errors, which
+// are worth showing distinctly from the live client pre-check above them.
+type SaveState =
+  | { status: "idle" }
+  | { status: "saving" }
+  | { status: "saved"; id: string }
+  | { status: "rejected"; validation: ValidationResult }
+  | { status: "error"; message: string };
+
 export function RackBuilder() {
   const [shelves, setShelves] = useState<Shelf[] | null>(null);
   const [devices, setDevices] = useState<Device[] | null>(null);
@@ -21,6 +42,8 @@ export function RackBuilder() {
   const [rackSizeU, setRackSizeU] = useState<number>(5);
   const [placedShelves, setPlacedShelves] = useState<PlacedShelf[]>([]);
   const [selection, setSelection] = useState<Selection>(null);
+  const [layoutName, setLayoutName] = useState("");
+  const [saveState, setSaveState] = useState<SaveState>({ status: "idle" });
 
   useEffect(() => {
     Promise.all([fetchShelves(), fetchDevices(), fetchRackProfile()])
@@ -115,6 +138,26 @@ export function RackBuilder() {
           : p
       )
     );
+  }
+
+  // Attempting the save is not gated on the live client pre-check passing
+  // — that check is UX guidance, the server's real response is what
+  // actually decides, per the explicit "server as final authority" call.
+  // Someone can click Save & Share with visible issues still showing and
+  // find out for real what the server thinks, rather than being blocked
+  // by a client-side guess.
+  async function handleSave() {
+    setSaveState({ status: "saving" });
+    try {
+      const { id } = await createLayout(layoutName || "Untitled layout", rackSizeU, placedShelves);
+      setSaveState({ status: "saved", id });
+    } catch (err) {
+      if (err instanceof LayoutValidationError) {
+        setSaveState({ status: "rejected", validation: err.validation });
+      } else {
+        setSaveState({ status: "error", message: err instanceof Error ? err.message : "Unknown error" });
+      }
+    }
   }
 
   // Rendered top-down (highest U first) to match how a physical rack
@@ -239,6 +282,43 @@ export function RackBuilder() {
           </ul>
         </div>
       )}
+
+      <div className="save-share">
+        <input
+          type="text"
+          className="layout-name-input"
+          placeholder="Name this layout"
+          value={layoutName}
+          onChange={(e) => setLayoutName(e.target.value)}
+        />
+        <button type="button" className="save-button" onClick={handleSave} disabled={saveState.status === "saving"}>
+          {saveState.status === "saving" ? "Saving…" : "Save & Share"}
+        </button>
+      </div>
+
+      {saveState.status === "saved" && (
+        <p className="state-message save-success">
+          Saved. Share this link: <code>{`${window.location.origin}${window.location.pathname}?layout=${saveState.id}`}</code>
+        </p>
+      )}
+
+      {saveState.status === "rejected" && (
+        <div className="validation-panel" role="alert">
+          <h2 className="validation-panel-heading">
+            The server rejected this save ({saveState.validation.errors.length} issue
+            {saveState.validation.errors.length === 1 ? "" : "s"})
+          </h2>
+          <ul>
+            {saveState.validation.errors.map((e, i) => (
+              <li key={i} className={`validation-item validation-item--${e.kind}`}>
+                {e.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {saveState.status === "error" && <p className="state-message error">Save failed: {saveState.message}</p>}
 
       <section className="catalog-section" aria-labelledby="shelf-picker-heading">
         <h2 id="shelf-picker-heading">Shelves</h2>

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { fetchDevices, fetchShelves, type Device, type PlacedShelf, type Shelf } from "../lib/api";
+import { fetchDevices, fetchRackProfile, fetchShelves, type Device, type PlacedShelf, type RackProfile, type Shelf } from "../lib/api";
 import { canPlaceAt } from "../lib/placement";
+import { validateLayoutClient } from "../lib/validate";
 
 const RACK_SIZE_OPTIONS = [5, 8, 10] as const;
 
@@ -15,16 +16,18 @@ type Selection = { type: "shelf"; id: string } | { type: "device"; id: string } 
 export function RackBuilder() {
   const [shelves, setShelves] = useState<Shelf[] | null>(null);
   const [devices, setDevices] = useState<Device[] | null>(null);
+  const [rackProfile, setRackProfile] = useState<RackProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rackSizeU, setRackSizeU] = useState<number>(5);
   const [placedShelves, setPlacedShelves] = useState<PlacedShelf[]>([]);
   const [selection, setSelection] = useState<Selection>(null);
 
   useEffect(() => {
-    Promise.all([fetchShelves(), fetchDevices()])
-      .then(([shelfData, deviceData]) => {
+    Promise.all([fetchShelves(), fetchDevices(), fetchRackProfile()])
+      .then(([shelfData, deviceData, rackProfileData]) => {
         setShelves(shelfData);
         setDevices(deviceData);
+        setRackProfile(rackProfileData);
       })
       .catch((err) => setError(err.message));
   }, []);
@@ -40,6 +43,17 @@ export function RackBuilder() {
     for (const d of devices ?? []) map.set(d.id, d);
     return map;
   }, [devices]);
+
+  // Real-time pre-check — recomputed on every placement change, using the
+  // exact same function the backend's own validateLayout is faithfully
+  // ported from (see lib/validate.ts). This is UX only: the server is
+  // still the final authority at save time, and Save & Share (still to
+  // come) has to handle a real 422 from the server regardless of what
+  // this says, since the two could theoretically drift.
+  const validation = useMemo(() => {
+    if (!rackProfile) return null;
+    return validateLayoutClient(rackSizeU, placedShelves, shelvesById, devicesById, rackProfile);
+  }, [rackSizeU, placedShelves, shelvesById, devicesById, rackProfile]);
 
   function selectShelf(id: string) {
     setSelection((current) => (current?.type === "shelf" && current.id === id ? null : { type: "shelf", id }));
@@ -212,6 +226,19 @@ export function RackBuilder() {
       </div>
 
       <div className="rack-elevation">{rows}</div>
+
+      {validation && !validation.valid && (
+        <div className="validation-panel" role="alert">
+          <h2 className="validation-panel-heading">Issues ({validation.errors.length})</h2>
+          <ul>
+            {validation.errors.map((e, i) => (
+              <li key={i} className={`validation-item validation-item--${e.kind}`}>
+                {e.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <section className="catalog-section" aria-labelledby="shelf-picker-heading">
         <h2 id="shelf-picker-heading">Shelves</h2>

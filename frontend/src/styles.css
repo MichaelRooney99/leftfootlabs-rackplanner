@@ -178,7 +178,36 @@ a {
 
 .rack-elevation {
   border: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+}
+
+.validation-panel {
+  border: 1px solid var(--accent-amber);
+  background: rgba(232, 163, 61, 0.06);
+  padding: 0.85rem 1rem;
   margin-bottom: 2.5rem;
+}
+
+.validation-panel-heading {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent-amber);
+  margin: 0 0 0.5rem;
+}
+
+.validation-panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.validation-item {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--text);
 }
 
 .rack-row {

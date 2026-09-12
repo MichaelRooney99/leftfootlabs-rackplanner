@@ -210,6 +210,56 @@ a {
   color: var(--text);
 }
 
+.save-share {
+  display: flex;
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+}
+
+.layout-name-input {
+  flex: 1;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 0.5rem 0.7rem;
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+}
+
+.layout-name-input::placeholder {
+  color: var(--text-dim);
+}
+
+.save-button {
+  background: var(--accent-amber);
+  color: var(--bg);
+  border: none;
+  padding: 0.5rem 1.1rem;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.save-button:hover:not(:disabled) {
+  background: #f0b25a;
+}
+
+.save-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.save-success {
+  border-color: var(--accent-slate);
+  color: var(--accent-slate);
+}
+
+.save-success code {
+  color: var(--text);
+  word-break: break-all;
+}
+
 .rack-row {
   display: flex;
   align-items: center;

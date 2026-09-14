@@ -30,6 +30,7 @@ export function migrate(): void {
       depth_mm      REAL NOT NULL,
       weight_kg     REAL NOT NULL,
       wattage       REAL NOT NULL,
+      width_mm      REAL,          -- nullable: unmeasured for every real seeded device so far, flagged not guessed
       source        TEXT NOT NULL DEFAULT 'curated' CHECK (source IN ('curated', 'community')),
       status        TEXT NOT NULL DEFAULT 'approved' CHECK (status IN ('approved', 'pending')),
       is_kit_item   INTEGER NOT NULL DEFAULT 0
@@ -41,16 +42,22 @@ export function migrate(): void {
     -- one-piece shelf that's the whole part; for a two-piece design
     -- (separate tray + faceplate) it's specifically the faceplate's
     -- width, since the faceplate is what actually clips into the rails.
+    -- usable_width_mm is a real, separate number from width_mm: the real
+    -- space available for placing devices across the shelf's face,
+    -- bounded by the shelf's own "ears" (where it connects to the post) —
+    -- always less than width_mm, never a fixed fraction of it, since that
+    -- relationship depends on each shelf's actual frame design.
     CREATE TABLE IF NOT EXISTS shelves (
-      id            TEXT PRIMARY KEY,
-      name          TEXT NOT NULL,
-      manufacturer  TEXT,
-      width_mm      REAL NOT NULL,
-      u_height      REAL NOT NULL,
-      max_depth_mm  REAL NOT NULL,
-      max_weight_kg REAL,          -- nullable: unmeasured for several real seed rows, flagged not guessed
-      source        TEXT NOT NULL DEFAULT 'curated' CHECK (source IN ('curated', 'community')),
-      status        TEXT NOT NULL DEFAULT 'approved' CHECK (status IN ('approved', 'pending'))
+      id                TEXT PRIMARY KEY,
+      name              TEXT NOT NULL,
+      manufacturer      TEXT,
+      width_mm          REAL NOT NULL,
+      u_height          REAL NOT NULL,
+      max_depth_mm      REAL NOT NULL,
+      max_weight_kg     REAL,          -- nullable: unmeasured for several real seed rows, flagged not guessed
+      usable_width_mm   REAL,          -- nullable: unmeasured for every real seeded shelf so far
+      source            TEXT NOT NULL DEFAULT 'curated' CHECK (source IN ('curated', 'community')),
+      status            TEXT NOT NULL DEFAULT 'approved' CHECK (status IN ('approved', 'pending'))
     );
 
     -- Single-row table: the universal 10-inch rack standard. A table
@@ -58,11 +65,26 @@ export function migrate(): void {
     -- (e.g. 19-inch) is a real possibility down the line and would be a
     -- second row here, not a second copy of constants scattered through
     -- the codebase — even though only the 10-inch profile exists today.
+    -- min_spacing_mm lives here rather than on shelves individually
+    -- because it's the same kind of thing width_mm/tolerance_mm are: a
+    -- universal constant, not a per-shelf attribute.
     CREATE TABLE IF NOT EXISTS rack_profiles (
-      id            INTEGER PRIMARY KEY CHECK (id = 1),
-      width_mm      REAL NOT NULL,
-      tolerance_mm  REAL NOT NULL,
-      u_height_mm   REAL NOT NULL
+      id              INTEGER PRIMARY KEY CHECK (id = 1),
+      width_mm        REAL NOT NULL,
+      tolerance_mm    REAL NOT NULL,
+      u_height_mm     REAL NOT NULL,
+      min_spacing_mm  REAL NOT NULL DEFAULT 8
+    );
+
+    -- Deliberately not a devices row with nulled-out fields that don't
+    -- apply — a keystone has no depth, weight, or wattage in any way
+    -- comparable to a mini PC or switch. The only thing it shares with a
+    -- device for placement purposes is real width and a need for spacing
+    -- from whatever's next to it.
+    CREATE TABLE IF NOT EXISTS keystones (
+      id       TEXT PRIMARY KEY,
+      name     TEXT NOT NULL,
+      width_mm REAL NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS layouts (
@@ -96,4 +118,32 @@ export function migrate(): void {
   if (hasOldColumnName) {
     db.exec(`ALTER TABLE layouts RENAME COLUMN placed_devices TO placed_shelves`);
   }
+
+  // Same real-migration treatment as the rename above: CREATE TABLE IF
+  // NOT EXISTS won't add a column to a table that already exists from an
+  // earlier schema version, so an existing dev DB needs each new column
+  // checked for and added explicitly, not just declared in the CREATE
+  // TABLE statement above (which only ever fires for a genuinely fresh
+  // database).
+  const devicesColumns = db.prepare(`PRAGMA table_info(devices)`).all() as { name: string }[];
+  if (!devicesColumns.some((c) => c.name === "width_mm")) {
+    db.exec(`ALTER TABLE devices ADD COLUMN width_mm REAL`);
+  }
+
+  const shelvesColumns = db.prepare(`PRAGMA table_info(shelves)`).all() as { name: string }[];
+  if (!shelvesColumns.some((c) => c.name === "usable_width_mm")) {
+    db.exec(`ALTER TABLE shelves ADD COLUMN usable_width_mm REAL`);
+  }
+
+  // rack_profiles is a single real row, not a fresh-per-database concept
+  // — an existing row from before min_spacing_mm existed needs the
+  // column added AND that existing row backfilled with the real value,
+  // since ALTER TABLE ADD COLUMN leaves existing rows NULL and this
+  // table's seed step uses INSERT OR IGNORE (a no-op against a row that
+  // already exists).
+  const rackProfilesColumns = db.prepare(`PRAGMA table_info(rack_profiles)`).all() as { name: string }[];
+  if (!rackProfilesColumns.some((c) => c.name === "min_spacing_mm")) {
+    db.exec(`ALTER TABLE rack_profiles ADD COLUMN min_spacing_mm REAL NOT NULL DEFAULT 8`);
+  }
+  db.prepare(`UPDATE rack_profiles SET min_spacing_mm = 8 WHERE id = 1 AND min_spacing_mm IS NULL`).run();
 }

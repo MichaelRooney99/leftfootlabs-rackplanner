@@ -51,6 +51,7 @@ describe("device row -> Device shape", () => {
       "depthMm",
       "weightKg",
       "wattage",
+      "widthMm",
       "source",
       "status",
       "isKitItem",
@@ -63,6 +64,9 @@ describe("device row -> Device shape", () => {
       expect(typeof device.weightKg).toBe("number");
       expect(typeof device.wattage).toBe("number");
       expect(typeof device.isKitItem).toBe("boolean"); // was truthy/falsy 0|1 off the raw row before this fix
+      // Real fact, not a placeholder: no seeded device has a measured
+      // width yet. A non-null value here would mean someone guessed one.
+      expect(device.widthMm).toBeNull();
     }
   });
 

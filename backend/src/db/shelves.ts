@@ -1,6 +1,5 @@
 import { db } from "./index.js";
-import type { } from "../types/index.js";
-import { Shelf, RackProfile } from "../types/index.js";
+import type { RackProfile, Shelf } from "../types/index.js";
 
 // Same one-mapping-two-consumers reasoning as db/devices.ts's rowToDevice:
 // this is the single place raw SQLite rows (snake_case) become the shared
@@ -14,6 +13,7 @@ function rowToShelf(row: any): Shelf {
     uHeight: row.u_height,
     maxDepthMm: row.max_depth_mm,
     maxWeightKg: row.max_weight_kg,
+    usableWidthMm: row.usable_width_mm,
     source: row.source,
     status: row.status,
   };
@@ -49,5 +49,6 @@ export function getRackProfile(): RackProfile {
     widthMm: row.width_mm,
     toleranceMm: row.tolerance_mm,
     uHeightMm: row.u_height_mm,
+    minSpacingMm: row.min_spacing_mm,
   };
 }

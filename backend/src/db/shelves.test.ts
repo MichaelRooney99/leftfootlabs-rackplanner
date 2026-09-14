@@ -40,6 +40,7 @@ describe("shelf row -> Shelf shape", () => {
       "uHeight",
       "maxDepthMm",
       "maxWeightKg",
+      "usableWidthMm",
       "source",
       "status",
     ].sort();
@@ -80,6 +81,15 @@ describe("shelf row -> Shelf shape", () => {
     }
   });
 
+  it("all six seeded shelves have usableWidthMm as an unmeasured null, not a guessed value", () => {
+    // Same real fact as maxWeightKg above — none of the six shelves has
+    // a real measured usable-face-width yet.
+    const shelves = getAllApprovedShelves();
+    for (const shelf of shelves) {
+      expect(shelf.usableWidthMm).toBeNull();
+    }
+  });
+
   it("includes the two one-piece bracket shelves with their real measured dimensions", () => {
     const optiplex = getShelf("dell-optiplex-micro-flush-front");
     expect(optiplex).toBeDefined();
@@ -92,10 +102,11 @@ describe("shelf row -> Shelf shape", () => {
     expect(tpLink!.maxDepthMm).toBe(102.53);
   });
 
-  it("getRackProfile returns the seeded universal 10-inch standard", () => {
+  it("getRackProfile returns the seeded universal 10-inch standard, including the real 8mm minimum spacing", () => {
     const profile = getRackProfile();
     expect(profile.widthMm).toBe(254);
     expect(profile.toleranceMm).toBe(2);
     expect(profile.uHeightMm).toBe(44.45);
+    expect(profile.minSpacingMm).toBe(8);
   });
 });

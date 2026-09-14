@@ -58,6 +58,7 @@ describe("GET /api/devices — real request through the actual Express app", () 
         "depthMm",
         "weightKg",
         "wattage",
+        "widthMm",
         "source",
         "status",
         "isKitItem",
@@ -70,6 +71,7 @@ describe("GET /api/devices — real request through the actual Express app", () 
     expect(device).not.toHaveProperty("u_height");
     expect(device).not.toHaveProperty("depth_mm");
     expect(device).not.toHaveProperty("is_kit_item");
+    expect(device).not.toHaveProperty("width_mm");
     expect(typeof device.isKitItem).toBe("boolean");
   });
 

@@ -3,6 +3,7 @@ import cors from "cors";
 import { devicesRouter } from "./routes/devices.js";
 import { layoutsRouter } from "./routes/layouts.js";
 import { shelvesRouter } from "./routes/shelves.js";
+import { keystonesRouter } from "./routes/keystones.js";
 import { getRackProfile } from "./db/shelves.js";
 
 // Extracted out of index.ts so the app itself is importable without also
@@ -18,6 +19,7 @@ export function createApp() {
   app.use("/api/devices", devicesRouter);
   app.use("/api/layouts", layoutsRouter);
   app.use("/api/shelves", shelvesRouter);
+  app.use("/api/keystones", keystonesRouter);
 
   app.get("/api/health", (_req, res) => {
     res.json({ status: "ok" });

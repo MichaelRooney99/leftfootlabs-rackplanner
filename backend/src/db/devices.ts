@@ -16,6 +16,7 @@ function rowToDevice(row: any): Device {
     depthMm: row.depth_mm,
     weightKg: row.weight_kg,
     wattage: row.wattage,
+    widthMm: row.width_mm,
     source: row.source,
     status: row.status,
     isKitItem: !!row.is_kit_item,

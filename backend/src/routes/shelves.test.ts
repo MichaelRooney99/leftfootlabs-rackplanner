@@ -40,10 +40,11 @@ describe("GET /api/shelves and /api/rack-profile — real requests through the a
 
     const shelf = res.body[0];
     expect(Object.keys(shelf).sort()).toEqual(
-      ["id", "name", "manufacturer", "widthMm", "uHeight", "maxDepthMm", "maxWeightKg", "source", "status"].sort()
+      ["id", "name", "manufacturer", "widthMm", "uHeight", "maxDepthMm", "maxWeightKg", "usableWidthMm", "source", "status"].sort()
     );
     expect(shelf).not.toHaveProperty("width_mm");
     expect(shelf).not.toHaveProperty("max_depth_mm");
+    expect(shelf).not.toHaveProperty("usable_width_mm");
   });
 
   it("GET /api/shelves/:id returns the same shape for a real seeded shelf", async () => {
@@ -60,10 +61,10 @@ describe("GET /api/shelves and /api/rack-profile — real requests through the a
     expect(res.status).toBe(404);
   });
 
-  it("GET /api/rack-profile returns the real seeded universal standard", async () => {
+  it("GET /api/rack-profile returns the real seeded universal standard, including minSpacingMm", async () => {
     const res = await request(app).get("/api/rack-profile");
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ widthMm: 254, toleranceMm: 2, uHeightMm: 44.45 });
+    expect(res.body).toEqual({ widthMm: 254, toleranceMm: 2, uHeightMm: 44.45, minSpacingMm: 8 });
   });
 });

@@ -21,6 +21,7 @@ export interface Device {
   depthMm: number;
   weightKg: number;
   wattage: number;       // typical draw, watts
+  widthMm: number | null;   // null: unmeasured for every real seeded device so far — needed for faceplate cutout placement, not the rack-width standard (that's Shelf.widthMm)
   source: DeviceSource;   // unused for filtering until v2 (community submissions)
   status: DeviceStatus;   // unused for filtering until v2
   isKitItem: boolean;     // true for leftfootLabs kit parts/accessories
@@ -46,17 +47,33 @@ export interface Shelf {
   uHeight: number;
   maxDepthMm: number;
   maxWeightKg: number | null;   // null: several real seed shelves have this unmeasured, not guessed
+  usableWidthMm: number | null;   // null: unmeasured for every real seeded shelf so far — the real space for placing devices, bounded by the shelf's "ears," always less than widthMm but not a fixed fraction of it
   source: DeviceSource;
   status: DeviceStatus;
 }
 
+// Deliberately not a Device with nulled-out fields that don't apply — a
+// keystone jack has no depth, weight, or wattage in any way comparable
+// to a mini PC or switch. The only thing it shares with a device for
+// placement purposes is real width and a need for spacing from whatever
+// sits next to it on a shelf's face.
+export interface Keystone {
+  id: string;
+  name: string;
+  widthMm: number;
+}
+
 // The universal 10-inch rack standard — one row today, structured as a
 // table rather than a constant to future-proof multi-profile support
-// even though only 10-inch is in scope for now.
+// even though only 10-inch is in scope for now. minSpacingMm is the same
+// kind of thing widthMm/toleranceMm are: a universal constant, not a
+// per-shelf attribute — the real minimum gap (8mm) required both between
+// two placed items and between an item and the shelf's own "ear."
 export interface RackProfile {
   widthMm: number;
   toleranceMm: number;
   uHeightMm: number;
+  minSpacingMm: number;
 }
 
 // A device no longer carries its own rack position — it's nested under
@@ -71,10 +88,21 @@ export interface PlacedDeviceOnShelf {
   xPositionMm?: number;
 }
 
+// Same unused-for-now treatment as PlacedDeviceOnShelf.xPositionMm above,
+// but xPositionMm is required here rather than optional — a keystone has
+// no meaning without a real position; there's no equivalent to "a device
+// nested under a shelf with an unspecified spot" for something that only
+// ever exists to occupy a specific point on the face.
+export interface PlacedKeystone {
+  keystoneId: string;
+  xPositionMm: number;
+}
+
 export interface PlacedShelf {
   shelfId: string;
   startU: number;          // bottom rack unit position, 1-indexed
   placedDevices: PlacedDeviceOnShelf[];
+  placedKeystones?: PlacedKeystone[];   // optional, unused for now — same reasoning as xPositionMm above, avoids a second breaking change to PlacedShelf once horizontal placement UI exists
 }
 
 export interface Layout {

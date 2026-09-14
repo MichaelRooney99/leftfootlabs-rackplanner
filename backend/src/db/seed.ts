@@ -41,10 +41,15 @@ export function seed(): void {
   // measured spread across multiple independent 10-inch rack shelf
   // designs (see the shelf rows below); a table rather than a hardcoded
   // constant leaves room for a second rack-width profile later without
-  // a schema change, even though only 10-inch exists today.
+  // a schema change, even though only 10-inch exists today. min_spacing_mm
+  // (8mm) is the real minimum gap required both between two placed items
+  // on a shelf's face and between an item and the shelf's own "ear" —
+  // named explicitly here rather than left to the column's default, same
+  // preference for explicit real values over implicit ones as elsewhere
+  // in this file (e.g. wattage: 0, not left unset).
   db.prepare(`
-    INSERT OR IGNORE INTO rack_profiles (id, width_mm, tolerance_mm, u_height_mm)
-    VALUES (1, 254, 2, 44.45)
+    INSERT OR IGNORE INTO rack_profiles (id, width_mm, tolerance_mm, u_height_mm, min_spacing_mm)
+    VALUES (1, 254, 2, 44.45, 8)
   `).run();
 
   // Six real, independently-measured 10-inch shelves — none of them a

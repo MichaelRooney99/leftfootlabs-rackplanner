@@ -10,6 +10,7 @@ function rowToKeystone(row: any): Keystone {
     id: row.id,
     name: row.name,
     widthMm: row.width_mm,
+    heightMm: row.height_mm,
   };
 }
 

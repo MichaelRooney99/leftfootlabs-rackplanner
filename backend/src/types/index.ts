@@ -61,6 +61,7 @@ export interface Keystone {
   id: string;
   name: string;
   widthMm: number;
+  heightMm: number;
 }
 
 // The universal 10-inch rack standard — one row today, structured as a

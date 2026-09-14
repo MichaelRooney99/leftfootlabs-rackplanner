@@ -53,9 +53,9 @@ describe("shelf row -> Shelf shape", () => {
     }
   });
 
-  it("seeds exactly six real, non-leftfootLabs shelves", () => {
+  it("seeds exactly seven real, non-leftfootLabs shelves", () => {
     const shelves = getAllApprovedShelves();
-    expect(shelves.length).toBe(6);
+    expect(shelves.length).toBe(7);
   });
 
   it("getShelf returns the same shape as a single lookup", () => {
@@ -71,8 +71,8 @@ describe("shelf row -> Shelf shape", () => {
     expect(getShelf("does-not-exist")).toBeUndefined();
   });
 
-  it("all six seeded shelves have maxWeightKg as an unmeasured null, not a guessed value", () => {
-    // None of the six seeded shelves had a measured weight capacity
+  it("all seven seeded shelves have maxWeightKg as an unmeasured null, not a guessed value", () => {
+    // None of the seven seeded shelves had a measured weight capacity
     // available. A non-null value here would mean someone guessed a
     // number rather than flagging it as unmeasured.
     const shelves = getAllApprovedShelves();
@@ -81,13 +81,23 @@ describe("shelf row -> Shelf shape", () => {
     }
   });
 
-  it("all six seeded shelves have usableWidthMm as an unmeasured null, not a guessed value", () => {
-    // Same real fact as maxWeightKg above — none of the six shelves has
-    // a real measured usable-face-width yet.
+  it("six of the seven seeded shelves have usableWidthMm as an unmeasured null, not a guessed value", () => {
+    // Real fact, not the same for all seven anymore — the universal tray
+    // (see below) has a real measured usableWidthMm, the first one.
     const shelves = getAllApprovedShelves();
-    for (const shelf of shelves) {
+    const unmeasured = shelves.filter((s) => s.id !== "community-universal-tray-13cm");
+    expect(unmeasured).toHaveLength(6);
+    for (const shelf of unmeasured) {
       expect(shelf.usableWidthMm).toBeNull();
     }
+  });
+
+  it("the universal tray has a real, non-null usableWidthMm — the first measured example", () => {
+    const tray = getShelf("community-universal-tray-13cm");
+    expect(tray).toBeDefined();
+    expect(tray!.widthMm).toBe(254);
+    expect(tray!.maxDepthMm).toBe(133);
+    expect(tray!.usableWidthMm).toBe(214);
   });
 
   it("includes the two one-piece bracket shelves with their real measured dimensions", () => {

@@ -7,16 +7,17 @@ const TEST_DB_PATH = path.join(os.tmpdir(), `rackplanner-test-keystones-${Date.n
 process.env.RACKPLANNER_DB_PATH = TEST_DB_PATH;
 
 const { db, migrate } = await import("./index.js");
+const { seed } = await import("./seed.js");
 const { getAllKeystones, getKeystone } = await import("./keystones.js");
 
-// No seed() call here — unlike devices/shelves/rack_profiles, keystones
-// has no real seeded data yet. No real keystone width has been measured
-// yet, so the table is real, migrated, and genuinely empty rather than
-// seeded with a guessed number.
-describe("keystones — real, empty table until a real width is measured", () => {
+// Real seeded data now exists — every keystone jack shares the same
+// standardized 14.5mm x 16.0mm face regardless of connector type, so
+// one universal real row is seeded rather than the table staying empty
+// the way it did before that real research resolved the question.
+describe("keystones — real seeded standard, not a synthetic fixture", () => {
   beforeAll(() => {
     migrate();
-    db.prepare(`INSERT INTO keystones (id, name, width_mm) VALUES ('test-keystone', 'Test Keystone', 14.5)`).run();
+    seed();
   });
 
   afterAll(() => {
@@ -29,14 +30,16 @@ describe("keystones — real, empty table until a real width is measured", () =>
   it("getAllKeystones returns exactly the camelCase Keystone shape", () => {
     const keystones = getAllKeystones();
     expect(keystones.length).toBe(1);
-    expect(Object.keys(keystones[0]).sort()).toEqual(["id", "name", "widthMm"].sort());
+    expect(Object.keys(keystones[0]).sort()).toEqual(["id", "name", "widthMm", "heightMm"].sort());
     expect(typeof keystones[0].widthMm).toBe("number");
+    expect(typeof keystones[0].heightMm).toBe("number");
   });
 
-  it("getKeystone returns the same shape as a single lookup", () => {
-    const keystone = getKeystone("test-keystone");
+  it("seeds the real standardized keystone dimensions — 14.5mm x 16.0mm", () => {
+    const keystone = getKeystone("keystone-standard");
     expect(keystone).toBeDefined();
     expect(keystone!.widthMm).toBe(14.5);
+    expect(keystone!.heightMm).toBe(16.0);
   });
 
   it("getKeystone returns undefined for an unknown id, not a thrown error", () => {

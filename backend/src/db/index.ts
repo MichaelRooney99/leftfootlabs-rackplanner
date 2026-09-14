@@ -80,11 +80,17 @@ export function migrate(): void {
     -- apply — a keystone has no depth, weight, or wattage in any way
     -- comparable to a mini PC or switch. The only thing it shares with a
     -- device for placement purposes is real width and a need for spacing
-    -- from whatever's next to it.
+    -- from whatever's next to it. width_mm/height_mm are NOT NULL, not
+    -- nullable like devices.width_mm/shelves.usable_width_mm — every
+    -- real keystone jack shares the exact same real standardized
+    -- 14.5mm x 16.0mm face regardless of connector type, so there's no
+    -- unmeasured-placeholder state for this table the way there is for
+    -- devices/shelves.
     CREATE TABLE IF NOT EXISTS keystones (
-      id       TEXT PRIMARY KEY,
-      name     TEXT NOT NULL,
-      width_mm REAL NOT NULL
+      id        TEXT PRIMARY KEY,
+      name      TEXT NOT NULL,
+      width_mm  REAL NOT NULL,
+      height_mm REAL NOT NULL
     );
 
     CREATE TABLE IF NOT EXISTS layouts (
@@ -146,4 +152,15 @@ export function migrate(): void {
     db.exec(`ALTER TABLE rack_profiles ADD COLUMN min_spacing_mm REAL NOT NULL DEFAULT 8`);
   }
   db.prepare(`UPDATE rack_profiles SET min_spacing_mm = 8 WHERE id = 1 AND min_spacing_mm IS NULL`).run();
+
+  // keystones shipped without height_mm initially — an existing dev DB
+  // may already have the table from before this column existed. SQLite
+  // requires a DEFAULT for a NOT NULL column added via ALTER TABLE, so
+  // the real value (16.0mm, the actual keystone standard) is used as
+  // that default directly, rather than a placeholder that would need
+  // backfilling separately.
+  const keystonesColumns = db.prepare(`PRAGMA table_info(keystones)`).all() as { name: string }[];
+  if (!keystonesColumns.some((c) => c.name === "height_mm")) {
+    db.exec(`ALTER TABLE keystones ADD COLUMN height_mm REAL NOT NULL DEFAULT 16.0`);
+  }
 }

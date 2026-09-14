@@ -36,7 +36,7 @@ describe("GET /api/shelves and /api/rack-profile — real requests through the a
 
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
-    expect(res.body.length).toBe(6);
+    expect(res.body.length).toBe(7);
 
     const shelf = res.body[0];
     expect(Object.keys(shelf).sort()).toEqual(

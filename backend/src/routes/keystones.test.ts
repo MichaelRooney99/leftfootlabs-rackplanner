@@ -8,6 +8,7 @@ const TEST_DB_PATH = path.join(os.tmpdir(), `rackplanner-keystones-route-test-${
 process.env.RACKPLANNER_DB_PATH = TEST_DB_PATH;
 
 const { db, migrate } = await import("../db/index.js");
+const { seed } = await import("../db/seed.js");
 const { createApp } = await import("../app.js");
 
 const app = createApp();
@@ -15,7 +16,7 @@ const app = createApp();
 describe("GET /api/keystones — real requests through the actual Express app", () => {
   beforeAll(() => {
     migrate();
-    db.prepare(`INSERT INTO keystones (id, name, width_mm) VALUES ('test-keystone', 'Test Keystone', 14.5)`).run();
+    seed();
   });
 
   afterAll(() => {
@@ -31,15 +32,17 @@ describe("GET /api/keystones — real requests through the actual Express app", 
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
     expect(res.body.length).toBe(1);
-    expect(Object.keys(res.body[0]).sort()).toEqual(["id", "name", "widthMm"].sort());
+    expect(Object.keys(res.body[0]).sort()).toEqual(["id", "name", "widthMm", "heightMm"].sort());
     expect(res.body[0]).not.toHaveProperty("width_mm");
+    expect(res.body[0]).not.toHaveProperty("height_mm");
   });
 
-  it("GET /api/keystones/:id returns the same shape for a real lookup", async () => {
-    const res = await request(app).get("/api/keystones/test-keystone");
+  it("GET /api/keystones/:id returns the real standardized dimensions", async () => {
+    const res = await request(app).get("/api/keystones/keystone-standard");
 
     expect(res.status).toBe(200);
     expect(res.body.widthMm).toBe(14.5);
+    expect(res.body.heightMm).toBe(16.0);
   });
 
   it("GET /api/keystones/:id returns 404 for an unknown id", async () => {

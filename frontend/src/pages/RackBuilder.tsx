@@ -414,25 +414,33 @@ export function RackBuilder() {
       {saveState.status === "error" && <p className="state-message error">Save failed: {saveState.message}</p>}
 
       <section className="catalog-section" aria-labelledby="shelf-picker-heading">
-        <h2 id="shelf-picker-heading">Shelves</h2>
-        {!error && shelves === null && <p className="state-message">Loading shelves…</p>}
-        {shelves !== null && shelves.length === 0 && <p className="state-message">No shelves in the catalog yet.</p>}
-        {shelves !== null && shelves.length > 0 && (
+        <h2 id="shelf-picker-heading">Shelf</h2>
+        <p className="section-note">
+          Every real 10-inch shelf converges on ~254mm width, so building here uses the one standardized shelf —
+          browse the full real catalog on the Catalog tab.
+        </p>
+        {!error && shelves === null && <p className="state-message">Loading shelf…</p>}
+        {shelves !== null && shelves.filter((s) => s.isStandard).length === 0 && (
+          <p className="state-message">No standardized shelf flagged in the catalog yet.</p>
+        )}
+        {shelves !== null && shelves.filter((s) => s.isStandard).length > 0 && (
           <ul className="shelf-picker">
-            {shelves.map((s) => (
-              <li key={s.id}>
-                <button
-                  type="button"
-                  className={`shelf-picker-item ${selection?.type === "shelf" && selection.id === s.id ? "shelf-picker-item--selected" : ""}`}
-                  onClick={() => selectShelf(s.id)}
-                >
-                  <span className="item-name">{s.name}</span>
-                  <span className="shelf-picker-spec">
-                    {s.widthMm}mm × {s.uHeight}U
-                  </span>
-                </button>
-              </li>
-            ))}
+            {shelves
+              .filter((s) => s.isStandard)
+              .map((s) => (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    className={`shelf-picker-item ${selection?.type === "shelf" && selection.id === s.id ? "shelf-picker-item--selected" : ""}`}
+                    onClick={() => selectShelf(s.id)}
+                  >
+                    <span className="item-name">{s.name}</span>
+                    <span className="shelf-picker-spec">
+                      {s.widthMm}mm × {s.uHeight}U
+                    </span>
+                  </button>
+                </li>
+              ))}
           </ul>
         )}
       </section>

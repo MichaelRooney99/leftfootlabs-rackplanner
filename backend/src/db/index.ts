@@ -56,6 +56,7 @@ export function migrate(): void {
       max_depth_mm      REAL NOT NULL,
       max_weight_kg     REAL,          -- nullable: unmeasured for several real seed rows, flagged not guessed
       usable_width_mm   REAL,          -- nullable: unmeasured for every real seeded shelf so far
+      is_standard       INTEGER NOT NULL DEFAULT 0,  -- real flag, not a shelf id hardcoded in the frontend — which shelf the Build page offers, since every real shelf converges on ~254mm anyway and choosing among named products doesn't change what gets generated
       source            TEXT NOT NULL DEFAULT 'curated' CHECK (source IN ('curated', 'community')),
       status            TEXT NOT NULL DEFAULT 'approved' CHECK (status IN ('approved', 'pending'))
     );
@@ -139,6 +140,9 @@ export function migrate(): void {
   const shelvesColumns = db.prepare(`PRAGMA table_info(shelves)`).all() as { name: string }[];
   if (!shelvesColumns.some((c) => c.name === "usable_width_mm")) {
     db.exec(`ALTER TABLE shelves ADD COLUMN usable_width_mm REAL`);
+  }
+  if (!shelvesColumns.some((c) => c.name === "is_standard")) {
+    db.exec(`ALTER TABLE shelves ADD COLUMN is_standard INTEGER NOT NULL DEFAULT 0`);
   }
 
   // rack_profiles is a single real row, not a fresh-per-database concept

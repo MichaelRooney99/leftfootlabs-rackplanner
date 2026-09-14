@@ -48,6 +48,7 @@ export interface Shelf {
   maxDepthMm: number;
   maxWeightKg: number | null;   // null: several real seed shelves have this unmeasured, not guessed
   usableWidthMm: number | null;   // null: unmeasured for every real seeded shelf so far — the real space for placing devices, bounded by the shelf's "ears," always less than widthMm but not a fixed fraction of it
+  isStandard: boolean;   // real flag: which shelf the Build page offers, since every real shelf converges on ~254mm anyway
   source: DeviceSource;
   status: DeviceStatus;
 }

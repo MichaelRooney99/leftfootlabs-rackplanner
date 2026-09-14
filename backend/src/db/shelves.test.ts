@@ -41,6 +41,7 @@ describe("shelf row -> Shelf shape", () => {
       "maxDepthMm",
       "maxWeightKg",
       "usableWidthMm",
+      "isStandard",
       "source",
       "status",
     ].sort();
@@ -50,6 +51,7 @@ describe("shelf row -> Shelf shape", () => {
       expect(typeof shelf.widthMm).toBe("number");
       expect(typeof shelf.uHeight).toBe("number");
       expect(typeof shelf.maxDepthMm).toBe("number");
+      expect(typeof shelf.isStandard).toBe("boolean"); // real boolean, not a raw 0|1 off the row
     }
   });
 
@@ -118,5 +120,14 @@ describe("shelf row -> Shelf shape", () => {
     expect(profile.toleranceMm).toBe(2);
     expect(profile.uHeightMm).toBe(44.45);
     expect(profile.minSpacingMm).toBe(8);
+  });
+
+  it("exactly one shelf is flagged standard — the real 254mm x 1U shelf, not an invented entry", () => {
+    const shelves = getAllApprovedShelves();
+    const standard = shelves.filter((s) => s.isStandard);
+    expect(standard).toHaveLength(1);
+    expect(standard[0].id).toBe("community-10-inch-rack-shelf");
+    expect(standard[0].widthMm).toBe(254);
+    expect(standard[0].uHeight).toBe(1);
   });
 });

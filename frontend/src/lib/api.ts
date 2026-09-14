@@ -45,6 +45,7 @@ export interface Shelf {
   maxDepthMm: number;
   maxWeightKg: number | null;
   usableWidthMm: number | null;
+  isStandard: boolean;
   source: "curated" | "community";
   status: "approved" | "pending";
 }

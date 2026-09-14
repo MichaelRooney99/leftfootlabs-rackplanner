@@ -14,6 +14,7 @@ function rowToShelf(row: any): Shelf {
     maxDepthMm: row.max_depth_mm,
     maxWeightKg: row.max_weight_kg,
     usableWidthMm: row.usable_width_mm,
+    isStandard: !!row.is_standard,
     source: row.source,
     status: row.status,
   };

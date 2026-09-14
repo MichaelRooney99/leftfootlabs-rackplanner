@@ -60,10 +60,16 @@ export function seed(): void {
   // so it's left unmeasured rather than guessed. usable_width_mm is
   // NULL for six of them for the same real reason; the seventh (the
   // universal tray below) has a real measured value, the first one.
+  // Exactly one row is flagged is_standard — every real shelf here
+  // converges on ~254mm width anyway, so the Build page offers just
+  // this one rather than making someone choose among named products
+  // for a decision that doesn't change what actually gets generated.
+  // Not a newly-invented abstract entry: this is a real shelf that
+  // already happens to measure exactly 254mm x 1U.
   const insertShelf = db.prepare(`
     INSERT OR IGNORE INTO shelves
-      (id, name, manufacturer, width_mm, u_height, max_depth_mm, max_weight_kg, usable_width_mm, source, status)
-    VALUES (@id, @name, @manufacturer, @widthMm, @uHeight, @maxDepthMm, @maxWeightKg, @usableWidthMm, @source, @status)
+      (id, name, manufacturer, width_mm, u_height, max_depth_mm, max_weight_kg, usable_width_mm, is_standard, source, status)
+    VALUES (@id, @name, @manufacturer, @widthMm, @uHeight, @maxDepthMm, @maxWeightKg, @usableWidthMm, @isStandard, @source, @status)
   `);
 
   const shelves = [
@@ -76,6 +82,7 @@ export function seed(): void {
       maxDepthMm: 180.119,
       maxWeightKg: null,
       usableWidthMm: null,
+      isStandard: 0,
     },
     {
       id: "community-10in-rack-shelf-tesy-hony",
@@ -86,6 +93,7 @@ export function seed(): void {
       maxDepthMm: 212.997,
       maxWeightKg: null,
       usableWidthMm: null,
+      isStandard: 0,
     },
     {
       id: "community-10-inch-rack-shelf",
@@ -96,6 +104,7 @@ export function seed(): void {
       maxDepthMm: 211.5,
       maxWeightKg: null,
       usableWidthMm: null,
+      isStandard: 1, // the real, exact 254mm x 1U shelf — the one the Build page offers
     },
     {
       id: "community-rack-tray-10inch-1u",
@@ -106,6 +115,7 @@ export function seed(): void {
       maxDepthMm: 160,
       maxWeightKg: null,
       usableWidthMm: null,
+      isStandard: 0,
     },
     {
       id: "dell-optiplex-micro-flush-front",
@@ -116,6 +126,7 @@ export function seed(): void {
       maxDepthMm: 176.498,
       maxWeightKg: null,
       usableWidthMm: null,
+      isStandard: 0,
     },
     {
       id: "tp-link-tl-sg108e-bracket",
@@ -126,6 +137,7 @@ export function seed(): void {
       maxDepthMm: 102.53,
       maxWeightKg: null,
       usableWidthMm: null,
+      isStandard: 0,
     },
     {
       // Real dimensions taken directly from the STL's own mesh geometry
@@ -143,12 +155,20 @@ export function seed(): void {
       maxDepthMm: 133,
       maxWeightKg: null,
       usableWidthMm: 214,
+      isStandard: 0,
     },
   ];
 
   for (const shelf of shelves) {
     insertShelf.run({ ...shelf, source: "curated", status: "approved" });
   }
+
+  // INSERT OR IGNORE above is a no-op against a row that already exists
+  // from before is_standard was added — same real gap the rack_profiles
+  // min_spacing_mm backfill had to close once already. A real UPDATE
+  // here, not relying on the insert, so an existing local database's
+  // already-seeded shelf actually gets flagged correctly too.
+  db.prepare(`UPDATE shelves SET is_standard = 1 WHERE id = 'community-10-inch-rack-shelf'`).run();
 
   // One real keystone entry — every real keystone jack shares the exact
   // same standardized 14.5mm x 16.0mm face regardless of connector type

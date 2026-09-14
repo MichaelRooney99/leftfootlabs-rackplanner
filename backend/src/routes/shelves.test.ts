@@ -40,11 +40,12 @@ describe("GET /api/shelves and /api/rack-profile — real requests through the a
 
     const shelf = res.body[0];
     expect(Object.keys(shelf).sort()).toEqual(
-      ["id", "name", "manufacturer", "widthMm", "uHeight", "maxDepthMm", "maxWeightKg", "usableWidthMm", "source", "status"].sort()
+      ["id", "name", "manufacturer", "widthMm", "uHeight", "maxDepthMm", "maxWeightKg", "usableWidthMm", "isStandard", "source", "status"].sort()
     );
     expect(shelf).not.toHaveProperty("width_mm");
     expect(shelf).not.toHaveProperty("max_depth_mm");
     expect(shelf).not.toHaveProperty("usable_width_mm");
+    expect(shelf).not.toHaveProperty("is_standard");
   });
 
   it("GET /api/shelves/:id returns the same shape for a real seeded shelf", async () => {

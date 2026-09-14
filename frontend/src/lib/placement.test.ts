@@ -11,6 +11,7 @@ function makeShelf(id: string, uHeight: number): Shelf {
     uHeight,
     maxDepthMm: 200,
     maxWeightKg: null,
+    usableWidthMm: null,
     source: "curated",
     status: "approved",
   };

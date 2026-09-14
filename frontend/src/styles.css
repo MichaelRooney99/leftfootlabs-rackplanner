@@ -338,6 +338,49 @@ a {
   font-weight: 500;
 }
 
+.shelf-face-bar {
+  position: relative;
+  height: 2.5rem;
+  background: var(--bg);
+  border: 1px dashed var(--border);
+  margin: 0.4rem 0;
+}
+
+.shelf-face-item {
+  position: absolute;
+  top: 0.25rem;
+  bottom: 0.25rem;
+  background: var(--accent-slate);
+  opacity: 0.5;
+  border: 1px solid var(--accent-slate);
+}
+
+.shelf-face-item--keystone {
+  background: var(--accent-amber);
+  border-color: var(--accent-amber);
+}
+
+.shelf-face-note {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  margin-bottom: 0.4rem;
+}
+
+.shelf-face-position {
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  font-size: 0.75rem;
+}
+
+.shelf-picker-item--draggable {
+  cursor: grab;
+}
+
+.shelf-picker-item--draggable:active {
+  cursor: grabbing;
+}
+
 .rack-row-remove {
   background: none;
   border: 1px solid var(--border);

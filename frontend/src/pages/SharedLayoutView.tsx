@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { fetchDevices, fetchLayout, fetchShelves, type Device, type Layout, type Shelf } from "../lib/api";
+import { fetchDevices, fetchKeystones, fetchLayout, fetchShelves, type Device, type Keystone, type Layout, type Shelf } from "../lib/api";
 
 // Deliberately read-only, not a second copy of RackBuilder's interactive
 // state — layouts have no update endpoint (POST creates, GET reads,
@@ -10,14 +10,16 @@ export function SharedLayoutView({ layoutId }: { layoutId: string }) {
   const [layout, setLayout] = useState<Layout | null>(null);
   const [shelves, setShelves] = useState<Shelf[] | null>(null);
   const [devices, setDevices] = useState<Device[] | null>(null);
+  const [keystones, setKeystones] = useState<Keystone[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([fetchLayout(layoutId), fetchShelves(), fetchDevices()])
-      .then(([layoutData, shelfData, deviceData]) => {
+    Promise.all([fetchLayout(layoutId), fetchShelves(), fetchDevices(), fetchKeystones()])
+      .then(([layoutData, shelfData, deviceData, keystoneData]) => {
         setLayout(layoutData);
         setShelves(shelfData);
         setDevices(deviceData);
+        setKeystones(keystoneData);
       })
       .catch((err) => setError(err.message));
   }, [layoutId]);
@@ -34,6 +36,12 @@ export function SharedLayoutView({ layoutId }: { layoutId: string }) {
     return map;
   }, [devices]);
 
+  const keystonesById = useMemo(() => {
+    const map = new Map<string, Keystone>();
+    for (const k of keystones ?? []) map.set(k.id, k);
+    return map;
+  }, [keystones]);
+
   if (error) {
     return (
       <>
@@ -45,7 +53,7 @@ export function SharedLayoutView({ layoutId }: { layoutId: string }) {
     );
   }
 
-  if (!layout || shelves === null || devices === null) {
+  if (!layout || shelves === null || devices === null || keystones === null) {
     return <p className="state-message">Loading shared layout…</p>;
   }
 
@@ -68,16 +76,34 @@ export function SharedLayoutView({ layoutId }: { layoutId: string }) {
     const uHeight = shelf?.uHeight ?? 1;
     for (let i = 0; i < uHeight; i++) consumedUs.add(u + i);
 
+    const placedItems = [
+      ...placement.placedDevices.map((pd) => ({
+        id: pd.deviceId,
+        name: devicesById.get(pd.deviceId)?.name ?? pd.deviceId,
+        xPositionMm: pd.xPositionMm,
+      })),
+      ...(placement.placedKeystones ?? []).map((pk) => ({
+        id: pk.keystoneId,
+        name: keystonesById.get(pk.keystoneId)?.name ?? pk.keystoneId,
+        xPositionMm: pk.xPositionMm,
+      })),
+    ];
+
     rows.push(
-      <div key={`filled-${u}`} className="rack-row rack-row--filled" style={{ height: `${Math.max(uHeight * 2.5, 2.5 + placement.placedDevices.length * 1.4)}rem` }}>
+      <div key={`filled-${u}`} className="rack-row rack-row--filled" style={{ height: `${Math.max(uHeight * 2.5, 2.5 + placedItems.length * 1.4)}rem` }}>
         <span className="rack-row-label">U{u}</span>
         <div className="rack-row-shelf">
           <span className="rack-row-content">{shelf?.name ?? placement.shelfId}</span>
-          {placement.placedDevices.length > 0 && (
+          {placedItems.length > 0 && (
             <ul className="rack-row-devices">
-              {placement.placedDevices.map((pd, i) => (
-                <li key={`${pd.deviceId}-${i}`}>
-                  <span>{devicesById.get(pd.deviceId)?.name ?? pd.deviceId}</span>
+              {placedItems.map((item, i) => (
+                <li key={`${item.id}-${i}`}>
+                  <span>
+                    {item.name}
+                    {item.xPositionMm !== undefined && (
+                      <span className="shelf-face-position"> @ {item.xPositionMm}mm</span>
+                    )}
+                  </span>
                 </li>
               ))}
             </ul>

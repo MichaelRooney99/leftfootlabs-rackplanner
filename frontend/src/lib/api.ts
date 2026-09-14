@@ -22,6 +22,7 @@ export interface Device {
   depthMm: number;
   weightKg: number;
   wattage: number;
+  widthMm: number | null;
   source: "curated" | "community";
   status: "approved" | "pending";
   isKitItem: boolean;
@@ -43,6 +44,7 @@ export interface Shelf {
   uHeight: number;
   maxDepthMm: number;
   maxWeightKg: number | null;
+  usableWidthMm: number | null;
   source: "curated" | "community";
   status: "approved" | "pending";
 }
@@ -50,6 +52,24 @@ export interface Shelf {
 export async function fetchShelves(): Promise<Shelf[]> {
   const res = await fetch(`${API_BASE}/shelves`);
   if (!res.ok) throw new Error(`Failed to fetch shelves: ${res.status}`);
+  return res.json();
+}
+
+// Matches backend/src/types/index.ts's Keystone shape. Not a Device with
+// nulled-out fields — a keystone jack has no depth, weight, or wattage
+// in any way comparable to a mini PC or switch, only a real width and
+// height, both required (never null) since the standard itself
+// guarantees the value regardless of connector type.
+export interface Keystone {
+  id: string;
+  name: string;
+  widthMm: number;
+  heightMm: number;
+}
+
+export async function fetchKeystones(): Promise<Keystone[]> {
+  const res = await fetch(`${API_BASE}/keystones`);
+  if (!res.ok) throw new Error(`Failed to fetch keystones: ${res.status}`);
   return res.json();
 }
 
@@ -78,10 +98,19 @@ export interface PlacedDeviceOnShelf {
   xPositionMm?: number;
 }
 
+// Required here, unlike PlacedDeviceOnShelf.xPositionMm — a keystone has
+// no meaning without a real position, there's no equivalent "nested
+// under a shelf with an unspecified spot" state for it.
+export interface PlacedKeystone {
+  keystoneId: string;
+  xPositionMm: number;
+}
+
 export interface PlacedShelf {
   shelfId: string;
   startU: number;
   placedDevices: PlacedDeviceOnShelf[];
+  placedKeystones?: PlacedKeystone[];
 }
 
 // Matches backend/src/types/index.ts's ValidationError/ValidationResult

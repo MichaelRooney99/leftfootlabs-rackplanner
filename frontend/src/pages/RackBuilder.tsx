@@ -2,31 +2,37 @@ import { useEffect, useMemo, useState } from "react";
 import {
   createLayout,
   fetchDevices,
+  fetchKeystones,
   fetchRackProfile,
   fetchShelves,
   LayoutValidationError,
   type Device,
+  type Keystone,
   type PlacedShelf,
   type RackProfile,
   type Shelf,
   type ValidationResult,
 } from "../lib/api";
 import { canPlaceAt } from "../lib/placement";
+import { canPlaceHorizontally, snapToGrid } from "../lib/horizontalPlacement";
 import { validateLayoutClient } from "../lib/validate";
 
 const RACK_SIZE_OPTIONS = [5, 8, 10] as const;
+const HORIZONTAL_GRID_MM = 2;
+const PX_PER_MM = 2; // real to-scale rendering: 1mm = 2px
 
-// A single selection slot rather than two separate "selectedShelfId" /
-// "selectedDeviceId" states — picking a device always means "I'm about to
-// place this on a shelf," and picking a shelf always means "I'm about to
-// place this in an open rack slot." The two are mutually exclusive by
-// construction this way, instead of by remembering to clear the other
-// state by hand at every selection site.
-type Selection = { type: "shelf"; id: string } | { type: "device"; id: string } | null;
+// Now only tracks shelf selection for vertical rack placement — device
+// and keystone placement onto a shelf's face is real drag-and-drop now,
+// not click-then-click, so there's no "selected device" state left to
+// track here.
+type Selection = { type: "shelf"; id: string } | null;
 
-// The real outcome of a save attempt, not just a boolean — "saved" needs
-// the real link, and "rejected" needs the real server-side errors, which
-// are worth showing distinctly from the live client pre-check above them.
+// What's actually being dragged, read out of the native HTML5 drag
+// event's dataTransfer payload — real browser drag-and-drop, not a
+// library, per the same "don't reach for a dependency before it's
+// justified" call already made for the main rack elevation.
+type DragPayload = { kind: "device" | "keystone"; id: string };
+
 type SaveState =
   | { status: "idle" }
   | { status: "saving" }
@@ -37,6 +43,7 @@ type SaveState =
 export function RackBuilder() {
   const [shelves, setShelves] = useState<Shelf[] | null>(null);
   const [devices, setDevices] = useState<Device[] | null>(null);
+  const [keystones, setKeystones] = useState<Keystone[] | null>(null);
   const [rackProfile, setRackProfile] = useState<RackProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rackSizeU, setRackSizeU] = useState<number>(5);
@@ -46,10 +53,11 @@ export function RackBuilder() {
   const [saveState, setSaveState] = useState<SaveState>({ status: "idle" });
 
   useEffect(() => {
-    Promise.all([fetchShelves(), fetchDevices(), fetchRackProfile()])
-      .then(([shelfData, deviceData, rackProfileData]) => {
+    Promise.all([fetchShelves(), fetchDevices(), fetchKeystones(), fetchRackProfile()])
+      .then(([shelfData, deviceData, keystoneData, rackProfileData]) => {
         setShelves(shelfData);
         setDevices(deviceData);
+        setKeystones(keystoneData);
         setRackProfile(rackProfileData);
       })
       .catch((err) => setError(err.message));
@@ -67,12 +75,12 @@ export function RackBuilder() {
     return map;
   }, [devices]);
 
-  // Real-time pre-check — recomputed on every placement change, using the
-  // exact same function the backend's own validateLayout is faithfully
-  // ported from (see lib/validate.ts). This is UX only: the server is
-  // still the final authority at save time, and Save & Share (still to
-  // come) has to handle a real 422 from the server regardless of what
-  // this says, since the two could theoretically drift.
+  const keystonesById = useMemo(() => {
+    const map = new Map<string, Keystone>();
+    for (const k of keystones ?? []) map.set(k.id, k);
+    return map;
+  }, [keystones]);
+
   const validation = useMemo(() => {
     if (!rackProfile) return null;
     return validateLayoutClient(rackSizeU, placedShelves, shelvesById, devicesById, rackProfile);
@@ -82,13 +90,6 @@ export function RackBuilder() {
     setSelection((current) => (current?.type === "shelf" && current.id === id ? null : { type: "shelf", id }));
   }
 
-  function selectDevice(id: string) {
-    setSelection((current) => (current?.type === "device" && current.id === id ? null : { type: "device", id }));
-  }
-
-  // Changing rack size after shelves are already placed could leave some
-  // of them hanging past the new (smaller) height — rather than silently
-  // dropping placements, block shrinking below whatever's already placed.
   function handleRackSizeChange(newSize: number) {
     const highestOccupiedU = placedShelves.reduce((max, p) => {
       const shelf = shelvesById.get(p.shelfId);
@@ -109,25 +110,12 @@ export function RackBuilder() {
     if (!shelf) return;
     if (!canPlaceAt(shelf, startU, rackSizeU, placedShelves, shelvesById)) return;
 
-    setPlacedShelves((prev) => [...prev, { shelfId: selection.id, startU, placedDevices: [] }]);
+    setPlacedShelves((prev) => [...prev, { shelfId: selection.id, startU, placedDevices: [], placedKeystones: [] }]);
     setSelection(null);
   }
 
   function removeShelfAt(startU: number) {
     setPlacedShelves((prev) => prev.filter((p) => p.startU !== startU));
-  }
-
-  // No fit check here yet — this is mechanical placement only, same as
-  // shelf placement was before the width check existed. Depth/weight
-  // capacity is real-time validation, still its own next piece.
-  function placeSelectedDeviceOnShelf(startU: number) {
-    if (selection?.type !== "device") return;
-    const deviceId = selection.id;
-
-    setPlacedShelves((prev) =>
-      prev.map((p) => (p.startU === startU ? { ...p, placedDevices: [...p.placedDevices, { deviceId }] } : p))
-    );
-    setSelection(null);
   }
 
   function removeDeviceFromShelf(startU: number, deviceId: string) {
@@ -140,12 +128,79 @@ export function RackBuilder() {
     );
   }
 
-  // Attempting the save is not gated on the live client pre-check passing
-  // — that check is UX guidance, the server's real response is what
-  // actually decides, per the explicit "server as final authority" call.
-  // Someone can click Save & Share with visible issues still showing and
-  // find out for real what the server thinks, rather than being blocked
-  // by a client-side guess.
+  function removeKeystoneFromShelf(startU: number, keystoneId: string) {
+    setPlacedShelves((prev) =>
+      prev.map((p) =>
+        p.startU === startU
+          ? { ...p, placedKeystones: (p.placedKeystones ?? []).filter((pk) => pk.keystoneId !== keystoneId) }
+          : p
+      )
+    );
+  }
+
+  // Real drop handler for horizontal placement — reads what's being
+  // dragged from the native dataTransfer payload, converts the drop's
+  // pixel position into a real mm position relative to the face bar's
+  // own bounding rect, snaps to the real 2mm grid, and runs the
+  // mechanical overlap guard before accepting it. No fit/spacing
+  // validation here — that's a separate, later check, same relationship
+  // the vertical placement guard had to the width/depth/weight checks
+  // before those existed.
+  function handleDrop(e: React.DragEvent<HTMLDivElement>, startU: number, faceWidthMm: number) {
+    e.preventDefault();
+    const raw = e.dataTransfer.getData("application/json");
+    if (!raw) return;
+    const payload: DragPayload = JSON.parse(raw);
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const dropXPx = e.clientX - rect.left;
+    const rawMm = dropXPx / PX_PER_MM;
+    const xPositionMm = snapToGrid(rawMm, HORIZONTAL_GRID_MM);
+    if (xPositionMm > faceWidthMm) return; // dropped past the rendered face entirely
+
+    const placement = placedShelves.find((p) => p.startU === startU);
+    if (!placement) return;
+
+    const existingItems = [
+      ...placement.placedDevices.map((pd) => {
+        const d = devicesById.get(pd.deviceId);
+        return { xPositionMm: pd.xPositionMm ?? 0, widthMm: d?.widthMm ?? null };
+      }),
+      ...(placement.placedKeystones ?? []).map((pk) => {
+        const k = keystonesById.get(pk.keystoneId);
+        return { xPositionMm: pk.xPositionMm, widthMm: k?.widthMm ?? null };
+      }),
+    ];
+
+    if (payload.kind === "device") {
+      const device = devicesById.get(payload.id);
+      if (!canPlaceHorizontally(device?.widthMm ?? null, xPositionMm, existingItems)) return;
+      setPlacedShelves((prev) =>
+        prev.map((p) =>
+          p.startU === startU
+            ? { ...p, placedDevices: [...p.placedDevices, { deviceId: payload.id, xPositionMm }] }
+            : p
+        )
+      );
+    } else {
+      const keystone = keystonesById.get(payload.id);
+      if (!canPlaceHorizontally(keystone?.widthMm ?? null, xPositionMm, existingItems)) return;
+      setPlacedShelves((prev) =>
+        prev.map((p) =>
+          p.startU === startU
+            ? { ...p, placedKeystones: [...(p.placedKeystones ?? []), { keystoneId: payload.id, xPositionMm }] }
+            : p
+        )
+      );
+    }
+  }
+
+  function handleDragStart(e: React.DragEvent, kind: "device" | "keystone", id: string) {
+    const payload: DragPayload = { kind, id };
+    e.dataTransfer.setData("application/json", JSON.stringify(payload));
+    e.dataTransfer.effectAllowed = "copy";
+  }
+
   async function handleSave() {
     setSaveState({ status: "saving" });
     try {
@@ -173,18 +228,34 @@ export function RackBuilder() {
       const uHeight = shelf?.uHeight ?? 1;
       for (let i = 0; i < uHeight; i++) consumedUs.add(u + i);
 
-      const deviceDropEligible = selection?.type === "device";
-      const selectedDevice = deviceDropEligible ? devicesById.get(selection.id) : undefined;
+      // Real to-scale rendering when usableWidthMm is measured (only
+      // one of the seven real seeded shelves has this so far); shelf.
+      // widthMm — always known, rack-compliant — is used as an honest
+      // approximate stand-in otherwise, clearly labeled as such rather
+      // than silently treated as if it were the real usable figure.
+      const faceWidthMm = shelf?.usableWidthMm ?? shelf?.widthMm ?? 254;
+      const isApproximate = !shelf?.usableWidthMm;
+      const faceWidthPx = faceWidthMm * PX_PER_MM;
+
+      const placedItems = [
+        ...placement.placedDevices.map((pd) => ({
+          kind: "device" as const,
+          id: pd.deviceId,
+          xPositionMm: pd.xPositionMm ?? 0,
+          name: devicesById.get(pd.deviceId)?.name ?? pd.deviceId,
+          widthMm: devicesById.get(pd.deviceId)?.widthMm ?? null,
+        })),
+        ...(placement.placedKeystones ?? []).map((pk) => ({
+          kind: "keystone" as const,
+          id: pk.keystoneId,
+          xPositionMm: pk.xPositionMm,
+          name: keystonesById.get(pk.keystoneId)?.name ?? pk.keystoneId,
+          widthMm: keystonesById.get(pk.keystoneId)?.widthMm ?? null,
+        })),
+      ];
 
       rows.push(
-        <div
-          key={`filled-${u}`}
-          className={`rack-row rack-row--filled ${deviceDropEligible ? "rack-row--eligible" : ""}`}
-          style={{ height: `${Math.max(uHeight * 2.5, 2.5 + placement.placedDevices.length * 1.4)}rem` }}
-          onClick={deviceDropEligible ? () => placeSelectedDeviceOnShelf(u) : undefined}
-          role={deviceDropEligible ? "button" : undefined}
-          tabIndex={deviceDropEligible ? 0 : undefined}
-        >
+        <div key={`filled-${u}`} className="rack-row rack-row--filled">
           <span className="rack-row-label">U{u}</span>
           <div className="rack-row-shelf">
             <div className="rack-row-shelf-header">
@@ -201,30 +272,52 @@ export function RackBuilder() {
                 ×
               </button>
             </div>
-            {placement.placedDevices.length > 0 && (
+
+            <div
+              className="shelf-face-bar"
+              style={{ width: `${faceWidthPx}px` }}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => handleDrop(e, u, faceWidthMm)}
+            >
+              {placedItems.map((item) => (
+                <div
+                  key={`${item.kind}-${item.id}-${item.xPositionMm}`}
+                  className={`shelf-face-item shelf-face-item--${item.kind}`}
+                  style={{
+                    left: `${item.xPositionMm * PX_PER_MM}px`,
+                    width: item.widthMm ? `${item.widthMm * PX_PER_MM}px` : "12px",
+                  }}
+                  title={`${item.name} @ ${item.xPositionMm}mm`}
+                />
+              ))}
+            </div>
+            {isApproximate && (
+              <span className="shelf-face-note">
+                Approximate — real usable width not yet measured for this shelf.
+              </span>
+            )}
+
+            {placedItems.length > 0 && (
               <ul className="rack-row-devices">
-                {placement.placedDevices.map((pd, i) => {
-                  const device = devicesById.get(pd.deviceId);
-                  return (
-                    <li key={`${pd.deviceId}-${i}`}>
-                      <span>{device?.name ?? pd.deviceId}</span>
-                      <button
-                        type="button"
-                        className="rack-row-remove rack-row-remove--small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeDeviceFromShelf(u, pd.deviceId);
-                        }}
-                        aria-label={`Remove ${device?.name ?? "device"} from ${shelf?.name ?? "shelf"}`}
-                      >
-                        ×
-                      </button>
-                    </li>
-                  );
-                })}
+                {placedItems.map((item) => (
+                  <li key={`list-${item.kind}-${item.id}-${item.xPositionMm}`}>
+                    <span>
+                      {item.name} <span className="shelf-face-position">@ {item.xPositionMm}mm</span>
+                    </span>
+                    <button
+                      type="button"
+                      className="rack-row-remove rack-row-remove--small"
+                      onClick={() =>
+                        item.kind === "device" ? removeDeviceFromShelf(u, item.id) : removeKeystoneFromShelf(u, item.id)
+                      }
+                      aria-label={`Remove ${item.name} from ${shelf?.name ?? "shelf"}`}
+                    >
+                      ×
+                    </button>
+                  </li>
+                ))}
               </ul>
             )}
-            {deviceDropEligible && <span className="rack-row-hint">Click to add {selectedDevice?.name}</span>}
           </div>
         </div>
       );
@@ -252,7 +345,7 @@ export function RackBuilder() {
     <>
       <header className="page-header">
         <h1>Build a rack</h1>
-        <p>Select a shelf, click an open slot to place it. Select a device, click a placed shelf to add it there.</p>
+        <p>Select a shelf, click an open slot to place it. Drag a device or keystone onto a placed shelf's face.</p>
       </header>
 
       {error && <p className="state-message error">{error}</p>}
@@ -346,6 +439,7 @@ export function RackBuilder() {
 
       <section className="catalog-section" aria-labelledby="device-picker-heading">
         <h2 id="device-picker-heading">Devices</h2>
+        <p className="section-note">Drag a device onto a placed shelf's face to position it.</p>
         {!error && devices === null && <p className="state-message">Loading devices…</p>}
         {devices !== null && devices.filter((d) => !d.isKitItem).length === 0 && (
           <p className="state-message">No placeable devices in the catalog yet.</p>
@@ -353,21 +447,53 @@ export function RackBuilder() {
         {devices !== null && devices.filter((d) => !d.isKitItem).length > 0 && (
           <ul className="shelf-picker">
             {devices
-              .filter((d) => !d.isKitItem) // the leftfootLabs frame is informational-only, never placed
+              .filter((d) => !d.isKitItem)
               .map((d) => (
                 <li key={d.id}>
-                  <button
-                    type="button"
-                    className={`shelf-picker-item ${selection?.type === "device" && selection.id === d.id ? "shelf-picker-item--selected" : ""}`}
-                    onClick={() => selectDevice(d.id)}
+                  <div
+                    className="shelf-picker-item shelf-picker-item--draggable"
+                    draggable
+                    role="button"
+                    tabIndex={0}
+                    onDragStart={(e) => handleDragStart(e, "device", d.id)}
                   >
                     <span className="item-name">{d.name}</span>
                     <span className="shelf-picker-spec">
-                      {d.depthMm}mm deep · {d.weightKg}kg · {d.wattage}W
+                      {d.widthMm ? `${d.widthMm}mm wide` : "width unmeasured"} · {d.depthMm}mm deep · {d.weightKg}kg ·{" "}
+                      {d.wattage}W
                     </span>
-                  </button>
+                  </div>
                 </li>
               ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="catalog-section" aria-labelledby="keystone-picker-heading">
+        <h2 id="keystone-picker-heading">Keystones</h2>
+        <p className="section-note">Drag a keystone onto a placed shelf's face to position it.</p>
+        {!error && keystones === null && <p className="state-message">Loading keystones…</p>}
+        {keystones !== null && keystones.length === 0 && (
+          <p className="state-message">No keystones in the catalog yet.</p>
+        )}
+        {keystones !== null && keystones.length > 0 && (
+          <ul className="shelf-picker">
+            {keystones.map((k) => (
+              <li key={k.id}>
+                <div
+                  className="shelf-picker-item shelf-picker-item--draggable"
+                  draggable
+                  role="button"
+                  tabIndex={0}
+                  onDragStart={(e) => handleDragStart(e, "keystone", k.id)}
+                >
+                  <span className="item-name">{k.name}</span>
+                  <span className="shelf-picker-spec">
+                    {k.widthMm}mm × {k.heightMm}mm
+                  </span>
+                </div>
+              </li>
+            ))}
           </ul>
         )}
       </section>

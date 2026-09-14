@@ -123,7 +123,7 @@ export interface ValidationResult {
 
 export interface ValidationError {
   deviceId: string;
-  kind: "collision" | "exceeds_rack_height" | "exceeds_rack_width" | "depth_exceeds_shelf" | "weight_exceeds_shelf";
+  kind: "collision" | "exceeds_rack_height" | "exceeds_rack_width" | "depth_exceeds_shelf" | "weight_exceeds_shelf" | "exceeds_shelf_face_width" | "insufficient_ear_clearance" | "insufficient_spacing";
   message: string;
 }
 

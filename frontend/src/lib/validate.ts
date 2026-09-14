@@ -1,21 +1,22 @@
-import type { Device, PlacedShelf, RackProfile, Shelf, ValidationError, ValidationResult } from "./api";
+import type { Device, Keystone, PlacedShelf, RackProfile, Shelf, ValidationError, ValidationResult } from "./api";
 
 // Faithful client-side port of backend/src/db/validate.ts's validateLayout
 // — same checks, same order, same messages — but reading from fetched
-// data (shelvesById/devicesById/rackProfile) instead of database lookups.
-// This exists specifically so the pre-check the person sees while
-// building a layout matches what the server will actually enforce at
-// save time, rather than a second, hand-approximated set of rules that
-// could quietly drift from the real one. Any change to the backend's
-// validateLayout should be mirrored here — there's no way to share the
-// implementation directly across a database-backed function and a
-// fetched-data function without a much bigger refactor than this
+// data (shelvesById/devicesById/keystonesById/rackProfile) instead of
+// database lookups. This exists specifically so the pre-check the person
+// sees while building a layout matches what the server will actually
+// enforce at save time, rather than a second, hand-approximated set of
+// rules that could quietly drift from the real one. Any change to the
+// backend's validateLayout should be mirrored here — there's no way to
+// share the implementation directly across a database-backed function
+// and a fetched-data function without a much bigger refactor than this
 // warrants right now.
 export function validateLayoutClient(
   rackSizeU: number,
   placedShelves: PlacedShelf[],
   shelvesById: Map<string, Shelf>,
   devicesById: Map<string, Device>,
+  keystonesById: Map<string, Keystone>,
   rackProfile: RackProfile
 ): ValidationResult {
   const errors: ValidationError[] = [];
@@ -88,6 +89,78 @@ export function validateLayoutClient(
           deviceId: devicePlacement.deviceId,
           kind: "weight_exceeds_shelf",
           message: `Adding ${device.name} brings ${shelf.name}'s total to ${shelfWeightTotal}kg, over its ${shelf.maxWeightKg}kg limit.`,
+        });
+      }
+    }
+
+    // Width-fit across the shelf's face — devices and keystones together,
+    // sorted by real position. Each of the three real checks below is
+    // independently gated on what's actually known, not skipped as a
+    // whole item the way depth/weight are: an item's OWN width being
+    // unmeasured (true for every real seeded device today) doesn't mean
+    // nothing about it can be checked — its left-ear clearance only
+    // needs its position, not its width, so that stays checkable even
+    // when the item's width is a real, honest unknown.
+    type FaceItem = { id: string; name: string; xPositionMm: number; widthMm: number | null };
+    const faceItems: FaceItem[] = [];
+
+    for (const devicePlacement of placement.placedDevices) {
+      const device = devicesById.get(devicePlacement.deviceId);
+      if (!device || devicePlacement.xPositionMm === undefined) continue;
+      faceItems.push({ id: device.id, name: device.name, xPositionMm: devicePlacement.xPositionMm, widthMm: device.widthMm });
+    }
+    for (const keystonePlacement of placement.placedKeystones ?? []) {
+      const keystone = keystonesById.get(keystonePlacement.keystoneId);
+      if (!keystone) {
+        errors.push({
+          deviceId: keystonePlacement.keystoneId,
+          kind: "collision",
+          message: `Keystone ${keystonePlacement.keystoneId} not found in library.`,
+        });
+        continue;
+      }
+      faceItems.push({ id: keystone.id, name: keystone.name, xPositionMm: keystonePlacement.xPositionMm, widthMm: keystone.widthMm });
+    }
+
+    faceItems.sort((a, b) => a.xPositionMm - b.xPositionMm);
+
+    for (let i = 0; i < faceItems.length; i++) {
+      const item = faceItems[i];
+
+      if (i === 0 && item.xPositionMm < rackProfile.minSpacingMm) {
+        errors.push({
+          deviceId: item.id,
+          kind: "insufficient_ear_clearance",
+          message: `${item.name} sits ${item.xPositionMm}mm from ${shelf.name}'s left ear — needs at least ${rackProfile.minSpacingMm}mm clearance.`,
+        });
+      }
+
+      if (item.widthMm === null) continue;
+
+      const itemEndMm = item.xPositionMm + item.widthMm;
+
+      if (shelf.usableWidthMm !== null) {
+        if (itemEndMm > shelf.usableWidthMm) {
+          errors.push({
+            deviceId: item.id,
+            kind: "exceeds_shelf_face_width",
+            message: `${item.name} (ending at ${itemEndMm}mm) doesn't fit within ${shelf.name}'s ${shelf.usableWidthMm}mm usable width at all.`,
+          });
+        } else if (itemEndMm > shelf.usableWidthMm - rackProfile.minSpacingMm) {
+          errors.push({
+            deviceId: item.id,
+            kind: "insufficient_ear_clearance",
+            message: `${item.name} ends ${(shelf.usableWidthMm - itemEndMm).toFixed(1)}mm from ${shelf.name}'s right ear — needs at least ${rackProfile.minSpacingMm}mm clearance.`,
+          });
+        }
+      }
+
+      const next = faceItems[i + 1];
+      if (next && itemEndMm + rackProfile.minSpacingMm > next.xPositionMm) {
+        errors.push({
+          deviceId: next.id,
+          kind: "insufficient_spacing",
+          message: `${next.name} is too close to ${item.name} — needs at least ${rackProfile.minSpacingMm}mm between them.`,
         });
       }
     }

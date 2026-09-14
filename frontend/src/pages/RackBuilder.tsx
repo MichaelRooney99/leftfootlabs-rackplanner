@@ -83,8 +83,8 @@ export function RackBuilder() {
 
   const validation = useMemo(() => {
     if (!rackProfile) return null;
-    return validateLayoutClient(rackSizeU, placedShelves, shelvesById, devicesById, rackProfile);
-  }, [rackSizeU, placedShelves, shelvesById, devicesById, rackProfile]);
+    return validateLayoutClient(rackSizeU, placedShelves, shelvesById, devicesById, keystonesById, rackProfile);
+  }, [rackSizeU, placedShelves, shelvesById, devicesById, keystonesById, rackProfile]);
 
   function selectShelf(id: string) {
     setSelection((current) => (current?.type === "shelf" && current.id === id ? null : { type: "shelf", id }));

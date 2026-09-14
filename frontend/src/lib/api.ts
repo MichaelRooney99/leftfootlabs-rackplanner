@@ -83,6 +83,7 @@ export interface RackProfile {
   widthMm: number;
   toleranceMm: number;
   uHeightMm: number;
+  minSpacingMm: number;
 }
 
 export async function fetchRackProfile(): Promise<RackProfile> {
@@ -123,7 +124,7 @@ export interface PlacedShelf {
 // comparable, not two different error shapes reconciled ad hoc.
 export interface ValidationError {
   deviceId: string;
-  kind: "collision" | "exceeds_rack_height" | "exceeds_rack_width" | "depth_exceeds_shelf" | "weight_exceeds_shelf";
+  kind: "collision" | "exceeds_rack_height" | "exceeds_rack_width" | "depth_exceeds_shelf" | "weight_exceeds_shelf" | "exceeds_shelf_face_width" | "insufficient_ear_clearance" | "insufficient_spacing";
   message: string;
 }
 
